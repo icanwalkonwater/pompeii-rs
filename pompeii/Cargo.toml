@@ -7,8 +7,8 @@ license = "LGPL-3.0-or-later"
 description = "RESERVED for Vulkan renderer"
 homepage = "https://github.com/icanwalkonwater/pompeii-rs"
 repository = "https://github.com/icanwalkonwater/pompeii-rs"
-readme = "README.md"
+readme = "../README.md"
 keywords = []
 
 [dependencies]
-pompeii-hal = { path = "../pompeii-hal", version = "*" }
+# pompeii-hal = { path = "../pompeii-hal", version = "*" }
