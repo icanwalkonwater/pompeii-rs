@@ -5,8 +5,13 @@ edition = "2021"
 publish = false
 
 [dev-dependencies]
-pompeii = { version = "0.1.0", path = "../pompeii" }
+pompeii = { version = "=0.1.0", path = "../pompeii" }
+pompeii-hal = { version = "=0.1.0", path = "../pompeii-hal" }
+pompeii-hal-backend-vulkan = { version = "=0.1.0", path = "../pompeii-hal-backend-vulkan" }
+
+simplelog = "^0.11.1"
+anyhow = "^1.0.51"
 
 [[example]]
-name = "slt"
-path = "slt.rs"
+name = "setup_hal"
+path = "setup_hal.rs"
