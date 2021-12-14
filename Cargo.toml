@@ -1,2 +1,6 @@
 [workspace]
-members = ["pompeii", "pompeii-hal", "pompeii-hal-backend-vulkan"]
+members = [
+    "pompeii",
+    "pompeii-hal",
+    "pompeii-hal-backend-vulkan"
+]
