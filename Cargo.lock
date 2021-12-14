@@ -3,8 +3,18 @@
 version = 3
 
 [[package]]
-name = "pompeii"
+name = "examples"
 version = "0.0.0"
+dependencies = [
+ "pompeii",
+]
+
+[[package]]
+name = "pompeii"
+version = "0.1.0"
+dependencies = [
+ "pompeii-hal",
+]
 
 [[package]]
 name = "pompeii-hal"

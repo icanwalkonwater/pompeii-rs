@@ -1,0 +1,12 @@
+[package]
+name = "examples"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dev-dependencies]
+pompeii = { version = "0.1.0", path = "../pompeii" }
+
+[[example]]
+name = "slt"
+path = "slt.rs"

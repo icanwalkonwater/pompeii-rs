@@ -1,6 +1,6 @@
 [package]
 name = "pompeii"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Lucas Malandrino <lucas.malandrino@gmail.com>"]
 edition = "2021"
 license = "LGPL-3.0-or-later"
@@ -11,4 +11,4 @@ readme = "../README.md"
 keywords = []
 
 [dependencies]
-# pompeii-hal = { path = "../pompeii-hal", version = "*" }
+pompeii-hal = { path = "../pompeii-hal", version = "*" }

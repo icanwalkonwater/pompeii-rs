@@ -2,5 +2,7 @@
 members = [
     "pompeii",
     "pompeii-hal",
-    "pompeii-hal-backend-vulkan"
+    "pompeii-hal-backend-vulkan",
+
+    "examples",
 ]
