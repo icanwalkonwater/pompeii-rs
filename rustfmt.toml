@@ -1,0 +1,4 @@
+edition = "2021"
+brace_style = "PreferSameLine"
+newline_style = "Unix"
+imports_granularity = "Crate"
