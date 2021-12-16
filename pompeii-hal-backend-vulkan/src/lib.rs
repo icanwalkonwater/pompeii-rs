@@ -1,15 +1,13 @@
-use crate::{
-    builder::PompeiiVulkanBuilder, debug_utils::DebugUtils, errors::VulkanError,
-    initializer::PompeiiVulkanInitializer, queues::DeviceQueues,
-};
+use crate::{debug_utils::DebugUtils, errors::VulkanError};
 use pompeii_hal::PompeiiBackend;
+use setup::{
+    builder::PompeiiVulkanBuilder, initializer::PompeiiVulkanInitializer,
+    queues_finder::DeviceQueues,
+};
 use std::{mem::ManuallyDrop, sync::Arc};
 
-pub mod builder;
 pub mod debug_utils;
-pub mod initializer;
-pub mod physical_device;
-pub mod queues;
+pub mod setup;
 
 pub mod errors {
 

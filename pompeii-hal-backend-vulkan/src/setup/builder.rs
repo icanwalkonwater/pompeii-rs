@@ -1,13 +1,15 @@
 use crate::{
     debug_utils::DebugUtils,
     errors::{Result, VkErrorExt, VmaErrorExt},
-    initializer::PompeiiVulkanInitializer,
-    physical_device::PhysicalDeviceInfo,
-    queues::{DeviceQueues, VulkanPhysicalDeviceQueueIndices},
+    setup::{
+        initializer::PompeiiVulkanInitializer,
+        physical_device::PhysicalDeviceInfo,
+        queues_finder::{DeviceQueues, VulkanPhysicalDeviceQueueIndices},
+    },
     PompeiiVulkanBackend,
 };
 use ash::vk;
-use pompeii_hal::{builder::PompeiiBuilder, errors::PompeiiError, PompeiiApp};
+use pompeii_hal::{errors::PompeiiError, setup::builder::PompeiiBuilder, PompeiiApp};
 use std::{ffi::CStr, mem::ManuallyDrop, os::raw::c_char, sync::Arc};
 
 type DeviceAdapter = (vk::PhysicalDevice, VulkanPhysicalDeviceQueueIndices);

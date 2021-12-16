@@ -1,6 +1,6 @@
-use crate::{builder::PompeiiBuilder, errors::BackendError, setup::PompeiiInitializer};
+use crate::errors::BackendError;
+use setup::{builder::PompeiiBuilder, initializer::PompeiiInitializer};
 
-pub mod builder;
 pub mod setup;
 
 pub mod errors {

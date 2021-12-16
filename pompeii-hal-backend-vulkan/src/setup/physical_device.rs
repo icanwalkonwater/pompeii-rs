@@ -1,8 +1,9 @@
 use crate::{
-    builder::PompeiiVulkanBuilder,
     errors::{Result, VkErrorExt},
-    initializer::VULKAN_VERSION,
-    queues::VulkanPhysicalDeviceQueueIndices,
+    setup::{
+        builder::PompeiiVulkanBuilder, initializer::VULKAN_VERSION,
+        queues_finder::VulkanPhysicalDeviceQueueIndices,
+    },
 };
 use ash::{vk, vk::QueueFamilyProperties2};
 use log::warn;

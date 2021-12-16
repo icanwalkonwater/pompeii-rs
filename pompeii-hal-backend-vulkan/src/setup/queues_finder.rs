@@ -2,7 +2,7 @@ use ash::vk;
 
 use crate::{
     errors::{Result, VulkanError},
-    physical_device::PhysicalDeviceInfo,
+    setup::physical_device::PhysicalDeviceInfo,
 };
 use parking_lot::Mutex;
 
@@ -169,44 +169,6 @@ impl DeviceQueues {
             })
         }
     }
-
-    // unsafe fn create_queue_and_pool(device: &ash::Device, index: u32) -> Result<QueueWithPool> {
-    //     let queue = device.get_device_queue(index, 0);
-    //     let pool = device.create_command_pool(
-    //         &vk::CommandPoolCreateInfo::builder()
-    //             .queue_family_index(index)
-    //             .flags(vk::CommandPoolCreateFlags::TRANSIENT),
-    //         None,
-    //     )?;
-    //
-    //     Ok(QueueWithPool {
-    //         queue: Mutex::new(queue),
-    //         pool: Mutex::new(pool),
-    //     })
-    // }
-
-    // pub(crate) fn submit_to_transfer<'a>(
-    //     &self,
-    //     device: &'a ash::Device,
-    //     submit_info: &[vk::SubmitInfo],
-    // ) -> Result<WaitForFenceFuture<'a>> {
-    //     unsafe { self.submit_to_queue(device, &self.transfer().queue, submit_info) }
-    // }
-    //
-    // pub(crate) unsafe fn submit_to_queue<'a>(
-    //     &self,
-    //     device: &'a ash::Device,
-    //     queue: &Mutex<vk::Queue>,
-    //     submit_info: &[vk::SubmitInfo],
-    // ) -> Result<WaitForFenceFuture<'a>> {
-    //     let fence = device.create_fence(&vk::FenceCreateInfo::builder(), None)?;
-    //     {
-    //         let queue = queue.lock();
-    //         device.queue_submit(*queue, submit_info, fence)?;
-    //     }
-    //
-    //     Ok(WaitForFenceFuture { device, fence })
-    // }
 
     pub(crate) fn graphics(&self) -> &QueueWithPool {
         self.queues[self.graphics_index].as_ref().unwrap()

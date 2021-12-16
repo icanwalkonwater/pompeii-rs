@@ -1,5 +1,5 @@
-use pompeii_hal::{builder::PompeiiBuilder, setup::PompeiiInitializer};
-use pompeii_hal_backend_vulkan::builder::PompeiiVulkanBuilder;
+use pompeii_hal::setup::{builder::PompeiiBuilder, initializer::PompeiiInitializer};
+use pompeii_hal_backend_vulkan::setup::builder::PompeiiVulkanBuilder;
 use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
 
 fn main() -> anyhow::Result<()> {

@@ -1,8 +1,9 @@
 use crate::{
-    builder::PompeiiVulkanBuilder, errors::Result, DebugUtils, PompeiiVulkanBackend, VulkanError,
+    errors::Result, setup::builder::PompeiiVulkanBuilder, DebugUtils, PompeiiVulkanBackend,
+    VulkanError,
 };
 use ash::vk;
-use pompeii_hal::setup::PompeiiInitializer;
+use pompeii_hal::setup::initializer::PompeiiInitializer;
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
