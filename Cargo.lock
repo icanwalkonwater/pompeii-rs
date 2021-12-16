@@ -163,6 +163,7 @@ dependencies = [
 name = "pompeii-hal"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "thiserror",
 ]
 

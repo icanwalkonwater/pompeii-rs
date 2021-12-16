@@ -1,7 +1,9 @@
-use crate::errors::BackendError;
+use crate::{alloc::PompeiiAllocator, errors::BackendError, tasks::TaskBuilder};
 use setup::{builder::PompeiiBuilder, initializer::PompeiiInitializer};
 
+pub mod alloc;
 pub mod setup;
+pub mod tasks;
 
 pub mod errors {
     use std::error::Error;
@@ -28,6 +30,9 @@ pub trait PompeiiBackend {
     type Error: BackendError;
     type Initializer: PompeiiInitializer;
     type Builder: PompeiiBuilder;
+    type Allocator: PompeiiAllocator;
+
+    // fn tasker(&self) -> TaskBuilder;
 }
 
 pub struct PompeiiApp<B: PompeiiBackend> {

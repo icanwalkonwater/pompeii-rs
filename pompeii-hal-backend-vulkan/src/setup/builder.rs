@@ -78,7 +78,7 @@ impl PompeiiBuilder for PompeiiVulkanBuilder {
             instance: self.instance.clone(),
             device: device.clone(),
             physical_device: self.physical_device.as_ref().unwrap().0,
-            flags: vk_mem::AllocatorCreateFlags::EXTERNALLY_SYNCHRONIZED,
+            flags: vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION,
             ..Default::default()
         })
         .map_err_pompeii()?;

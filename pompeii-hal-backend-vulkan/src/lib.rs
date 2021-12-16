@@ -1,4 +1,4 @@
-use crate::{debug_utils::DebugUtils, errors::VulkanError};
+use crate::{alloc::PompeiiVulkanAllocator, debug_utils::DebugUtils, errors::VulkanError};
 use pompeii_hal::PompeiiBackend;
 use setup::{
     builder::PompeiiVulkanBuilder, initializer::PompeiiVulkanInitializer,
@@ -6,6 +6,7 @@ use setup::{
 };
 use std::{mem::ManuallyDrop, sync::Arc};
 
+pub mod alloc;
 pub mod debug_utils;
 pub mod setup;
 
@@ -90,4 +91,5 @@ impl PompeiiBackend for PompeiiVulkanBackend {
     type Error = VulkanError;
     type Initializer = PompeiiVulkanInitializer;
     type Builder = PompeiiVulkanBuilder;
+    type Allocator = PompeiiVulkanAllocator;
 }
