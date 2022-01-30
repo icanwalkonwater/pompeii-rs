@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "pompeii",
+    "pompeii-task",
     "bevy_pompeii",
 
     "examples",

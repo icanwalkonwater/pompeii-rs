@@ -1,0 +1,8 @@
+[package]
+name = "pompeii-task"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+petgraph = { version = "^0.6", default-features = false }
+bitflags = "^1.3"

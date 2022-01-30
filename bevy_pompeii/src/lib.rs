@@ -1,6 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use pompeii::setup::PompeiiBuilder;
+use std::cmp::Ordering;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
@@ -16,20 +17,17 @@ impl Plugin for PompeiiPlugin {
             .build()
             .expect("Failed to create pompeii builder");
 
-        let gpu = builder
+        let (_, gpu) = builder
             .list_available_physical_devices()
             .unwrap()
             .into_iter()
-            .filter(|gpu| gpu.is_discrete())
-            .max_by_key(|gpu| gpu.vram_size())
-            .unwrap_or_else(|| {
-                builder
-                    .list_available_physical_devices()
-                    .unwrap()
-                    .into_iter()
-                    .next()
-                    .unwrap()
-            });
+            .map(|gpu| (gpu.is_discrete(), gpu))
+            .max_by(|a, b| match (a.0, b.0) {
+                (true, true) | (false, false) => a.1.vram_size().cmp(&b.1.vram_size()),
+                (true, _) => Ordering::Greater,
+                _ => Ordering::Less,
+            })
+            .expect("No compatible GPU available !");
 
         let pompeii_app = builder
             .set_physical_device(gpu)
