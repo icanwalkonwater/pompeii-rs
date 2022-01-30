@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "pompeii",
-    "pompeii-hal",
-    "pompeii-hal-backend-vulkan",
+    "bevy_pompeii",
 
     "examples",
 ]

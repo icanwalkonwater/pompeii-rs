@@ -1,0 +1,13 @@
+[package]
+name = "bevy_pompeii"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+trace = ["bevy_ecs/trace", "bevy_app/trace"]
+
+[dependencies]
+pompeii = { path = "../pompeii", version = "0.1.0" }
+bevy_ecs = "^0.6"
+bevy_window = "^0.6"
+bevy_app = "^0.6"

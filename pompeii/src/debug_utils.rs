@@ -1,4 +1,4 @@
-use crate::errors::{Result, VkErrorExt};
+use crate::errors::Result;
 use ash::vk;
 use log::{log, Level};
 use std::{borrow::Cow, ffi::CStr};
@@ -12,15 +12,13 @@ impl DebugUtils {
     pub(crate) fn new(entry: &ash::Entry, instance: &ash::Instance) -> Result<Self> {
         let loader = ash::extensions::ext::DebugUtils::new(entry, instance);
         let messenger = unsafe {
-            loader
-                .create_debug_utils_messenger(
-                    &vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                        .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
-                        .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
-                        .pfn_user_callback(Some(vulkan_debug_callback)),
-                    None,
-                )
-                .map_err_pompeii()?
+            loader.create_debug_utils_messenger(
+                &vk::DebugUtilsMessengerCreateInfoEXT::builder()
+                    .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
+                    .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+                    .pfn_user_callback(Some(vulkan_debug_callback)),
+                None,
+            )?
         };
 
         Ok(Self { loader, messenger })

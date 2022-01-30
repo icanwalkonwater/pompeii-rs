@@ -1,8 +1,8 @@
 use crate::{
-    errors::{Result, VkErrorExt},
+    errors::Result,
     setup::{
-        builder::PompeiiVulkanBuilder, initializer::VULKAN_VERSION,
-        queues_finder::VulkanPhysicalDeviceQueueIndices,
+        builder::PompeiiBuilder, initializer::VULKAN_VERSION,
+        queues_finder::PhysicalDeviceQueueIndices,
     },
 };
 use ash::{vk, vk::QueueFamilyProperties2};
@@ -43,13 +43,9 @@ impl PhysicalDeviceInfo {
     }
 }
 
-impl PompeiiVulkanBuilder {
+impl PompeiiBuilder {
     pub fn list_available_physical_devices(&mut self) -> Result<Vec<PhysicalDeviceInfo>> {
-        let devices = unsafe {
-            self.instance
-                .enumerate_physical_devices()
-                .map_err_pompeii()?
-        };
+        let devices = unsafe { self.instance.enumerate_physical_devices()? };
 
         let devices = devices
             .into_iter()
@@ -116,7 +112,7 @@ impl PompeiiVulkanBuilder {
         // TODO: no extensions yet
 
         // Check queues
-        if let Err(_) = VulkanPhysicalDeviceQueueIndices::from_device(info) {
+        if let Err(_) = PhysicalDeviceQueueIndices::from_device(info) {
             return false;
         }
 

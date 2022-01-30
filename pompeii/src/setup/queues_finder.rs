@@ -1,7 +1,7 @@
 use ash::vk;
 
 use crate::{
-    errors::{Result, VulkanError},
+    errors::{PompeiiError, Result},
     setup::physical_device::PhysicalDeviceInfo,
 };
 use parking_lot::Mutex;
@@ -12,7 +12,7 @@ use parking_lot::Mutex;
 /// but will fallback on whatever is available.
 ///
 /// So these indices can overlap.
-pub(crate) struct VulkanPhysicalDeviceQueueIndices {
+pub(crate) struct PhysicalDeviceQueueIndices {
     pub(crate) graphics: u32,
     pub(crate) compute: u32,
     pub(crate) transfer: u32,
@@ -20,7 +20,7 @@ pub(crate) struct VulkanPhysicalDeviceQueueIndices {
 
 const QUEUE_PRIORITIES_ONE: [f32; 1] = [1.0];
 
-impl VulkanPhysicalDeviceQueueIndices {
+impl PhysicalDeviceQueueIndices {
     pub(crate) fn from_device(info: &PhysicalDeviceInfo) -> Result<Self> {
         Ok(Self {
             graphics: Self::find_graphics_queue(info),
@@ -76,21 +76,21 @@ impl VulkanPhysicalDeviceQueueIndices {
     }
 
     fn find_compute_queue(info: &PhysicalDeviceInfo) -> Result<u32> {
-        Ok(Self::try_find_queue_not_shared_with(
+        Self::try_find_queue_not_shared_with(
             info,
             vk::QueueFlags::COMPUTE,
             vk::QueueFlags::GRAPHICS,
         )
-        .ok_or(VulkanError::NoComputeQueue)?)
+        .ok_or(PompeiiError::NoComputeQueue)
     }
 
     fn find_transfer_queue(info: &PhysicalDeviceInfo) -> Result<u32> {
-        Ok(Self::try_find_queue_not_shared_with(
+        Self::try_find_queue_not_shared_with(
             info,
             vk::QueueFlags::TRANSFER,
             vk::QueueFlags::GRAPHICS,
         )
-        .ok_or(VulkanError::NoTransferQueue)?)
+        .ok_or(PompeiiError::NoTransferQueue)
     }
 
     /// Helper
@@ -132,10 +132,7 @@ pub(crate) struct DeviceQueues {
 }
 
 impl DeviceQueues {
-    pub(crate) fn new(
-        device: &ash::Device,
-        indices: &VulkanPhysicalDeviceQueueIndices,
-    ) -> Result<Self> {
+    pub(crate) fn new(device: &ash::Device, indices: &PhysicalDeviceQueueIndices) -> Result<Self> {
         unsafe {
             let mut queues = [None, None, None];
 

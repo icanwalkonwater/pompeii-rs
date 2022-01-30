@@ -1,9 +1,9 @@
 use crate::{
-    errors::Result, setup::builder::PompeiiVulkanBuilder, DebugUtils, PompeiiVulkanBackend,
-    VulkanError,
+    debug_utils::DebugUtils,
+    errors::{PompeiiError, Result},
+    setup::builder::PompeiiBuilder,
 };
 use ash::vk;
-use pompeii_hal::setup::initializer::PompeiiInitializer;
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
@@ -11,12 +11,12 @@ use std::{
 
 pub(crate) const VULKAN_VERSION: u32 = vk::make_api_version(0, 1, 2, 0);
 
-pub struct PompeiiVulkanInitializer {
+pub struct PompeiiInitializer {
     name: Option<CString>,
     ext_instance: Vec<*const c_char>,
 }
 
-impl Default for PompeiiVulkanInitializer {
+impl Default for PompeiiInitializer {
     fn default() -> Self {
         Self {
             name: None,
@@ -25,25 +25,23 @@ impl Default for PompeiiVulkanInitializer {
     }
 }
 
-impl PompeiiInitializer for PompeiiVulkanInitializer {
-    type Backend = PompeiiVulkanBackend;
-
-    fn new() -> Self {
+impl PompeiiInitializer {
+    pub fn new() -> Self {
         Self::default()
     }
 
-    fn with_name(mut self, name: &str) -> Self {
+    pub fn with_name(mut self, name: &str) -> Self {
         self.name = Some(CString::new(name).unwrap());
         self
     }
 
-    fn with_instance_extension(mut self, name: &'static CStr) -> Self {
+    pub fn with_instance_extension(mut self, name: &'static CStr) -> Self {
         self.ext_instance.push(name.as_ptr());
         self
     }
 
-    fn build(self) -> Result<PompeiiVulkanBuilder> {
-        let entry = unsafe { ash::Entry::new().map_err(|err| VulkanError::LoadingError(err))? };
+    pub fn build(self) -> Result<PompeiiBuilder> {
+        let entry = unsafe { ash::Entry::new().map_err(|err| PompeiiError::LoadingError(err))? };
 
         let instance = {
             let app_name = CString::new(
@@ -73,12 +71,12 @@ impl PompeiiInitializer for PompeiiVulkanInitializer {
                             .application_info(&vk_app_info),
                         None,
                     )
-                    .map_err(|err| VulkanError::InstanceError(err))?
+                    .map_err(|err| PompeiiError::InstanceError(err))?
             }
         };
 
         let debug_utils = DebugUtils::new(&entry, &instance)?;
 
-        Ok(PompeiiVulkanBuilder::new(entry, instance, debug_utils))
+        Ok(PompeiiBuilder::new(entry, instance, debug_utils))
     }
 }

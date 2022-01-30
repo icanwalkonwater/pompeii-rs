@@ -11,4 +11,9 @@ readme = "../README.md"
 keywords = []
 
 [dependencies]
-pompeii-hal = { path = "../pompeii-hal", version = "*" }
+ash = "^0.33.3"
+vk-mem = { version = "^0.2", git = "https://github.com/icanwalkonwater/vk-mem-rs.git" }
+
+log = "^0.4.14"
+thiserror = "^1.0.30"
+parking_lot = "^0.11.2"
