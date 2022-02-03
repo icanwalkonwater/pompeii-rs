@@ -1,5 +1,9 @@
-use bevy_app::{App, Plugin};
+use bevy_app::prelude::*;
+use bevy_core::CorePlugin;
 use bevy_ecs::prelude::*;
+use bevy_window::WindowPlugin;
+use bevy_winit::WinitPlugin;
+use bevy_input::InputPlugin;
 use pompeii::setup::PompeiiBuilder;
 use std::cmp::Ordering;
 
@@ -8,6 +12,22 @@ pub enum RenderStage {
     Render,
 }
 
+/// Defaults pompeii plugins, including [PompeiiPlugin], [WindowPlugin] and [WinitPlugin]
+#[derive(Default)]
+pub struct DefaultPompeiiPlugins;
+
+impl PluginGroup for DefaultPompeiiPlugins {
+    fn build(&mut self, group: &mut bevy_app::PluginGroupBuilder) {
+        group
+            .add(CorePlugin)
+            .add(InputPlugin)
+            .add(WindowPlugin::default())
+            .add(WinitPlugin)
+            .add(PompeiiPlugin);
+    }
+}
+
+#[derive(Default)]
 pub struct PompeiiPlugin;
 
 impl Plugin for PompeiiPlugin {
@@ -29,12 +49,16 @@ impl Plugin for PompeiiPlugin {
             })
             .expect("No compatible GPU available !");
 
-        let pompeii_app = builder
+        /*let pompeii_app = builder
             .set_physical_device(gpu)
             .build()
-            .expect("Failed to create pompeii renderer");
+            .expect("Failed to create pompeii renderer");*/
+
+        // Insert app into world
+        //app.insert_resource(pompeii_app);
 
         // Register systems
+        app.add_startup_system(create_window_on_startup);
         app.schedule.add_stage(
             RenderStage::Render,
             SystemStage::parallel().with_system(render_system),
@@ -45,8 +69,10 @@ impl Plugin for PompeiiPlugin {
 #[derive(Debug, Component)]
 pub struct Rendererable;
 
-pub fn render_system(query: Query<&Rendererable>) {
-    println!("Hey");
+fn create_window_on_startup() {
+}
+
+fn render_system(query: Query<&Rendererable>) {
     for renderable in query.iter() {
         println!("{renderable:?}");
     }

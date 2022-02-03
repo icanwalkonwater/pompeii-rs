@@ -1,5 +1,5 @@
-use bevy_app::App;
-use bevy_pompeii::PompeiiPlugin;
+use bevy::prelude::*;
+use bevy_pompeii::{DefaultPompeiiPlugins};
 use simplelog::{ColorChoice, Config, LevelFilter, TermLogger, TerminalMode};
 
 fn main() -> anyhow::Result<()> {
@@ -10,9 +10,10 @@ fn main() -> anyhow::Result<()> {
         ColorChoice::Auto,
     )?;
 
-    let mut app = App::new();
-
-    app.add_plugin(PompeiiPlugin);
+    App::new()
+        .add_plugins(MinimalPlugins)
+        .add_plugins(DefaultPompeiiPlugins)
+        .run();
 
     Ok(())
 }
