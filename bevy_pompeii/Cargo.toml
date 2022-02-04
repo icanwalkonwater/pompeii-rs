@@ -3,14 +3,11 @@ name = "bevy_pompeii"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-trace = ["bevy_ecs/trace", "bevy_app/trace"]
-
 [dependencies]
 pompeii = { path = "../pompeii", version = "0.1.0" }
 bevy_app = { version = "^0.6", default-features = false }
 bevy_core = { version = "^0.6", default-features = false }
 bevy_ecs = { version = "^0.6", default-features = false }
 bevy_window = { version = "^0.6", default-features = false }
-bevy_winit = { version = "^0.6", features = ["x11"] }
-bevy_input = { version = "^0.6", default-features = false }
+
+log = "^0.4"

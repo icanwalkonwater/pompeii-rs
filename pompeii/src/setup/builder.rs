@@ -6,7 +6,7 @@ use crate::{
         physical_device::PhysicalDeviceInfo,
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
     },
-    PompeiiRenderer,
+    PompeiiRenderer, VULKAN_VERSION,
 };
 use ash::vk;
 use std::{ffi::CStr, mem::ManuallyDrop, os::raw::c_char, sync::Arc};
@@ -32,8 +32,7 @@ impl PompeiiBuilder {
             instance,
             debug_utils: ManuallyDrop::new(debug_utils),
             physical_device: None,
-            // Promoted to vulkan 1.1 so should be available
-            device_extensions: vec![ash::vk::KhrDedicatedAllocationFn::name().as_ptr()],
+            device_extensions: vec![],
         }
     }
 
@@ -56,10 +55,19 @@ impl PompeiiBuilder {
                 .ok_or(PompeiiError::NoPhysicalDevicePicked)?;
             let queue_create_info = physical.1.as_queue_create_info();
 
+            // TODO enabled things maybe
+            let mut descriptor_indexing_features =
+                vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
+
+            // TODO enabled things maybe
+            let features = vk::PhysicalDeviceFeatures::builder();
+
             unsafe {
                 self.instance.create_device(
                     physical.0,
                     &vk::DeviceCreateInfo::builder()
+                        .push_next(&mut descriptor_indexing_features)
+                        .enabled_features(&features)
                         .enabled_extension_names(&self.device_extensions)
                         .queue_create_infos(&queue_create_info),
                     None,
@@ -67,13 +75,19 @@ impl PompeiiBuilder {
             }
         };
 
-        let vma = vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
-            instance: self.instance.clone(),
-            device: device.clone(),
-            physical_device: self.physical_device.as_ref().unwrap().0,
-            flags: vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION,
-            ..Default::default()
-        })?;
+        let vma = unsafe {
+            vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
+                instance: self.instance.clone(),
+                device: device.clone(),
+                physical_device: self.physical_device.as_ref().unwrap().0,
+                flags: vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION,
+                preferred_large_heap_block_size: 0,
+                frame_in_use_count: 0,
+                heap_size_limits: None,
+                allocation_callbacks: None,
+                vulkan_api_version: VULKAN_VERSION,
+            })
+        }?;
 
         let queues = DeviceQueues::new(&device, &self.physical_device.as_ref().unwrap().1)?;
 

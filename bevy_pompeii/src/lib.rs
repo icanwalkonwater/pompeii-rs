@@ -1,30 +1,15 @@
 use bevy_app::prelude::*;
 use bevy_core::CorePlugin;
 use bevy_ecs::prelude::*;
-use bevy_window::WindowPlugin;
-use bevy_winit::WinitPlugin;
-use bevy_input::InputPlugin;
+use bevy_window::{CreateWindow, WindowPlugin, Windows};
+use log::{error, info};
 use pompeii::setup::PompeiiBuilder;
+use pompeii::PompeiiRenderer;
 use std::cmp::Ordering;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
     Render,
-}
-
-/// Defaults pompeii plugins, including [PompeiiPlugin], [WindowPlugin] and [WinitPlugin]
-#[derive(Default)]
-pub struct DefaultPompeiiPlugins;
-
-impl PluginGroup for DefaultPompeiiPlugins {
-    fn build(&mut self, group: &mut bevy_app::PluginGroupBuilder) {
-        group
-            .add(CorePlugin)
-            .add(InputPlugin)
-            .add(WindowPlugin::default())
-            .add(WinitPlugin)
-            .add(PompeiiPlugin);
-    }
 }
 
 #[derive(Default)]
@@ -38,7 +23,7 @@ impl Plugin for PompeiiPlugin {
             .expect("Failed to create pompeii builder");
 
         let (_, gpu) = builder
-            .list_available_physical_devices()
+            .list_suitable_physical_devices()
             .unwrap()
             .into_iter()
             .map(|gpu| (gpu.is_discrete(), gpu))
@@ -49,16 +34,16 @@ impl Plugin for PompeiiPlugin {
             })
             .expect("No compatible GPU available !");
 
-        /*let pompeii_app = builder
+        let pompeii_app = builder
             .set_physical_device(gpu)
             .build()
-            .expect("Failed to create pompeii renderer");*/
+            .expect("Failed to create pompeii renderer");
 
         // Insert app into world
-        //app.insert_resource(pompeii_app);
+        app.insert_resource(pompeii_app);
 
         // Register systems
-        app.add_startup_system(create_window_on_startup);
+        app.add_startup_system(attach_to_window);
         app.schedule.add_stage(
             RenderStage::Render,
             SystemStage::parallel().with_system(render_system),
@@ -66,14 +51,25 @@ impl Plugin for PompeiiPlugin {
     }
 }
 
+fn attach_to_window(mut events: EventReader<CreateWindow>, windows: Res<Windows>, renderer: Res<PompeiiRenderer>) {
+    let primary_window = events
+        .iter()
+        .filter(|win| win.id.is_primary())
+        .next()
+        .expect("A primary window need to exist for the renderer to finish its setup !");
+
+    let primary_window = windows.iter().filter(|w| w.id() == primary_window.id).next().unwrap();
+
+    let handle = primary_window.raw_window_handle();
+
+    println!("Window is {:?}", primary_window);
+}
+
 #[derive(Debug, Component)]
 pub struct Rendererable;
 
-fn create_window_on_startup() {
-}
-
 fn render_system(query: Query<&Rendererable>) {
     for renderable in query.iter() {
-        println!("{renderable:?}");
+        //println!("{renderable:?}");
     }
 }

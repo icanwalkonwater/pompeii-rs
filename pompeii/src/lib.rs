@@ -3,6 +3,7 @@ use std::{mem::ManuallyDrop, sync::Arc};
 mod alloc;
 mod debug_utils;
 pub mod setup;
+mod swapchain;
 
 use debug_utils::DebugUtils;
 use setup::*;
@@ -16,12 +17,12 @@ pub mod errors {
     pub enum PompeiiError {
         #[error("{0}")]
         LoadingError(#[from] ash::LoadingError),
-        #[error("{0}")]
-        InstanceError(#[from] ash::InstanceError),
+        //#[error("{0}")]
+        //InstanceError(#[from] ash::InstanceError),
         #[error("{0}")]
         VkError(#[from] ash::vk::Result),
-        #[error("{0}")]
-        VmaError(#[from] vk_mem::Error),
+        //#[error("{0}")]
+        //VmaError(#[from] vk_mem::Error),
         #[error("No compute queue found")]
         NoComputeQueue,
         #[error("No transfer queue found")]

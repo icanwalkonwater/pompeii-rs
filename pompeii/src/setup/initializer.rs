@@ -9,7 +9,7 @@ use std::{
     os::raw::c_char,
 };
 
-pub(crate) const VULKAN_VERSION: u32 = vk::make_api_version(0, 1, 2, 0);
+pub(crate) const VULKAN_VERSION: u32 = vk::API_VERSION_1_2;
 
 pub struct PompeiiInitializer {
     name: Option<CString>,
@@ -41,7 +41,7 @@ impl PompeiiInitializer {
     }
 
     pub fn build(self) -> Result<PompeiiBuilder> {
-        let entry = unsafe { ash::Entry::new().map_err(|err| PompeiiError::LoadingError(err))? };
+        let entry = unsafe { ash::Entry::load()? };
 
         let instance = {
             let app_name = CString::new(
@@ -70,8 +70,7 @@ impl PompeiiInitializer {
                             .enabled_extension_names(&self.ext_instance)
                             .application_info(&vk_app_info),
                         None,
-                    )
-                    .map_err(|err| PompeiiError::InstanceError(err))?
+                    )?
             }
         };
 

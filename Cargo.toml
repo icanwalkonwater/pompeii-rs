@@ -1,4 +1,5 @@
 [workspace]
+resolver = "2"
 members = [
     "pompeii",
     "pompeii-task",
@@ -6,3 +7,7 @@ members = [
 
     "examples",
 ]
+
+[patch.crates-io]
+ash = { git = "https://github.com/icanwalkonwater/ash.git" }
+ash-window = { git = "https://github.com/icanwalkonwater/ash.git" }

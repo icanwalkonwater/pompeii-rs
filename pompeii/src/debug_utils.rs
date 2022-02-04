@@ -14,8 +14,17 @@ impl DebugUtils {
         let messenger = unsafe {
             loader.create_debug_utils_messenger(
                 &vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                    .message_severity(vk::DebugUtilsMessageSeverityFlagsEXT::all())
-                    .message_type(vk::DebugUtilsMessageTypeFlagsEXT::all())
+                    .message_severity(
+                        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE
+                            | vk::DebugUtilsMessageSeverityFlagsEXT::INFO
+                            | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                            | vk::DebugUtilsMessageSeverityFlagsEXT::ERROR,
+                    )
+                    .message_type(
+                        vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                            | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                            | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+                    )
                     .pfn_user_callback(Some(vulkan_debug_callback)),
                 None,
             )?

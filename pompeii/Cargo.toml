@@ -11,9 +11,11 @@ readme = "../README.md"
 keywords = []
 
 [dependencies]
-ash = "^0.33.3"
-vk-mem = { version = "^0.2", git = "https://github.com/icanwalkonwater/vk-mem-rs.git" }
+ash = "^0.35"
+ash-window = "^0.9"
+raw-window-handle = "^0.4"
+vk-mem = { version = "^0.2", git = "https://github.com/gwihlidal/vk-mem-rs" }
 
-log = "^0.4.14"
-thiserror = "^1.0.30"
-parking_lot = "^0.11.2"
+log = "^0.4"
+thiserror = "^1.0"
+parking_lot = "^0.11"

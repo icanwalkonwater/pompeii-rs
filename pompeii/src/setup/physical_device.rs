@@ -7,14 +7,17 @@ use crate::{
 };
 use ash::{vk, vk::QueueFamilyProperties2};
 use log::warn;
+use raw_window_handle::HasRawWindowHandle;
 use std::ffi::CStr;
 
 #[derive(Debug)]
 pub struct PhysicalDeviceInfo {
     pub(crate) handle: vk::PhysicalDevice,
-    pub properties: vk::PhysicalDeviceProperties2,
-    pub extensions: Vec<vk::ExtensionProperties>,
     pub features: vk::PhysicalDeviceFeatures2,
+    pub properties: vk::PhysicalDeviceProperties2,
+    pub features_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingFeatures,
+    pub properties_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingProperties,
+    pub extensions: Vec<vk::ExtensionProperties>,
     pub queue_families: Vec<QueueFamilyProperties2>,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties2,
 }
@@ -44,25 +47,38 @@ impl PhysicalDeviceInfo {
 }
 
 impl PompeiiBuilder {
-    pub fn list_available_physical_devices(&mut self) -> Result<Vec<PhysicalDeviceInfo>> {
+    pub fn list_suitable_physical_devices(
+        &mut self,
+        window: Option<&dyn HasRawWindowHandle>,
+    ) -> Result<Vec<PhysicalDeviceInfo>> {
         let devices = unsafe { self.instance.enumerate_physical_devices()? };
 
         let devices = devices
             .into_iter()
             .map(|d| unsafe {
-                let mut properties = vk::PhysicalDeviceProperties2::default();
+                // Query features
+                let mut features_descriptor_indexing =
+                    vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
+                let mut features = vk::PhysicalDeviceFeatures2::builder()
+                    .push_next(&mut features_descriptor_indexing);
+                self.instance
+                    .get_physical_device_features2(d, &mut features);
+
+                // Query properties
+                let mut properties_descriptor_indexing =
+                    vk::PhysicalDeviceDescriptorIndexingProperties::builder();
+                let mut properties = vk::PhysicalDeviceProperties2::builder()
+                    .push_next(&mut properties_descriptor_indexing);
                 self.instance
                     .get_physical_device_properties2(d, &mut properties);
 
+                // Query extensions
                 let extensions = self
                     .instance
                     .enumerate_device_extension_properties(d)
                     .expect("Failed to enumerate device extensions");
 
-                let mut features = vk::PhysicalDeviceFeatures2::default();
-                self.instance
-                    .get_physical_device_features2(d, &mut features);
-
+                // Query queue information
                 let mut queue_families = Vec::new();
                 queue_families.resize_with(
                     self.instance
@@ -78,15 +94,17 @@ impl PompeiiBuilder {
 
                 PhysicalDeviceInfo {
                     handle: d,
-                    properties,
+                    features: features.build(),
+                    properties: properties.build(),
+                    features_descriptor_indexing: features_descriptor_indexing.build(),
+                    properties_descriptor_indexing: properties_descriptor_indexing.build(),
                     extensions,
-                    features,
                     queue_families,
                     memory_properties,
                 }
             })
             .filter(|info| {
-                if !self.is_device_suitable(info) {
+                if !self.is_device_suitable(info, window).unwrap() {
                     let name =
                         unsafe { CStr::from_ptr(info.properties.properties.device_name.as_ptr()) }
                             .to_str()
@@ -102,20 +120,36 @@ impl PompeiiBuilder {
         Ok(devices)
     }
 
-    fn is_device_suitable(&self, info: &PhysicalDeviceInfo) -> bool {
+    fn is_device_suitable(
+        &self,
+        info: &PhysicalDeviceInfo,
+        window: Option<&dyn HasRawWindowHandle>,
+    ) -> Result<bool> {
         // Check Vulkan version
         if info.properties.properties.api_version < VULKAN_VERSION {
-            return false;
+            return Ok(false);
         }
 
         // Check required extensions
-        // TODO: no extensions yet
+        if let Some(window) = window {
+            let extensions = ash_window::enumerate_required_extensions(window)?;
+
+            let has_window_extensions = extensions.iter().all(|ext| {
+                info.extensions
+                    .iter()
+                    .any(|device_ext| unsafe { &CStr::from_ptr(device_ext.extension_name.as_ptr()) } == ext)
+            });
+
+            if !has_window_extensions {
+                return Ok(false);
+            }
+        }
 
         // Check queues
         if let Err(_) = PhysicalDeviceQueueIndices::from_device(info) {
-            return false;
+            return Ok(false);
         }
 
-        true
+        Ok(true)
     }
 }

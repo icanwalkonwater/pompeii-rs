@@ -7,7 +7,7 @@ pub struct PompeiiAllocator {
 }
 
 impl PompeiiAllocator {
-    fn create_buffer(
+    unsafe fn create_buffer(
         &self,
         size: vk::DeviceSize,
         usage: vk::BufferUsageFlags,
@@ -17,7 +17,8 @@ impl PompeiiAllocator {
             &vk::BufferCreateInfo::builder()
                 .size(size)
                 .usage(usage)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE),
+                .sharing_mode(vk::SharingMode::EXCLUSIVE)
+                .build(),
             &vk_mem::AllocationCreateInfo {
                 usage: location,
                 ..Default::default()
