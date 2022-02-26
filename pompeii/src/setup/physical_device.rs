@@ -1,14 +1,16 @@
+use std::ffi::CStr;
+
+use ash::{vk, vk::QueueFamilyProperties2};
+use log::warn;
+
 use crate::{
     errors::Result,
     setup::{
         builder::PompeiiBuilder, initializer::VULKAN_VERSION,
         queues_finder::PhysicalDeviceQueueIndices,
     },
+    swapchain::SurfaceWrapper,
 };
-use ash::{vk, vk::QueueFamilyProperties2};
-use log::warn;
-use raw_window_handle::HasRawWindowHandle;
-use std::ffi::CStr;
 
 #[derive(Debug)]
 pub struct PhysicalDeviceInfo {
@@ -47,10 +49,7 @@ impl PhysicalDeviceInfo {
 }
 
 impl PompeiiBuilder {
-    pub fn list_suitable_physical_devices(
-        &mut self,
-        window: Option<&dyn HasRawWindowHandle>,
-    ) -> Result<Vec<PhysicalDeviceInfo>> {
+    pub fn list_suitable_physical_devices(&mut self) -> Result<Vec<PhysicalDeviceInfo>> {
         let devices = unsafe { self.instance.enumerate_physical_devices()? };
 
         let devices = devices
@@ -104,7 +103,7 @@ impl PompeiiBuilder {
                 }
             })
             .filter(|info| {
-                if !self.is_device_suitable(info, window).unwrap() {
+                if !self.is_device_suitable(info, &self.surface).unwrap() {
                     let name =
                         unsafe { CStr::from_ptr(info.properties.properties.device_name.as_ptr()) }
                             .to_str()
@@ -123,30 +122,17 @@ impl PompeiiBuilder {
     fn is_device_suitable(
         &self,
         info: &PhysicalDeviceInfo,
-        window: Option<&dyn HasRawWindowHandle>,
+        surface: &SurfaceWrapper,
     ) -> Result<bool> {
         // Check Vulkan version
         if info.properties.properties.api_version < VULKAN_VERSION {
             return Ok(false);
         }
 
-        // Check required extensions
-        if let Some(window) = window {
-            let extensions = ash_window::enumerate_required_extensions(window)?;
-
-            let has_window_extensions = extensions.iter().all(|ext| {
-                info.extensions
-                    .iter()
-                    .any(|device_ext| unsafe { &CStr::from_ptr(device_ext.extension_name.as_ptr()) } == ext)
-            });
-
-            if !has_window_extensions {
-                return Ok(false);
-            }
-        }
+        // TODO: check required extensions here
 
         // Check queues
-        if let Err(_) = PhysicalDeviceQueueIndices::from_device(info) {
+        if let Err(_) = PhysicalDeviceQueueIndices::from_device(info, surface) {
             return Ok(false);
         }
 

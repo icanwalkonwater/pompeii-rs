@@ -5,6 +5,7 @@ mod debug_utils;
 pub mod setup;
 mod swapchain;
 
+use crate::swapchain::SurfaceWrapper;
 use debug_utils::DebugUtils;
 use setup::*;
 
@@ -39,12 +40,17 @@ pub struct PompeiiRenderer {
     pub(crate) device: ash::Device,
     pub(crate) vma: Arc<vk_mem::Allocator>,
     pub(crate) queues: DeviceQueues,
+    pub(crate) surface: SurfaceWrapper,
 }
 
 impl Drop for PompeiiRenderer {
     fn drop(&mut self) {
         unsafe {
             // TODO: add destroys here
+
+            self.queues.destroy_pools(&self.device);
+
+            self.surface.ext.destroy_surface(self.surface.handle, None);
 
             Arc::get_mut(&mut self.vma)
                 .expect("There still are buffers around referencing VMA !")

@@ -1,12 +1,14 @@
-use crate::{
-    debug_utils::DebugUtils,
-    errors::{PompeiiError, Result},
-    setup::builder::PompeiiBuilder,
-};
-use ash::vk;
 use std::{
     ffi::{CStr, CString},
     os::raw::c_char,
+};
+
+use ash::vk;
+use raw_window_handle::HasRawWindowHandle;
+
+use crate::{
+    debug_utils::DebugUtils, errors::Result, setup::builder::PompeiiBuilder,
+    swapchain::SurfaceWrapper,
 };
 
 pub(crate) const VULKAN_VERSION: u32 = vk::API_VERSION_1_2;
@@ -40,7 +42,14 @@ impl PompeiiInitializer {
         self
     }
 
-    pub fn build(self) -> Result<PompeiiBuilder> {
+    pub fn build(mut self, window: &impl HasRawWindowHandle) -> Result<PompeiiBuilder> {
+        // Add window extension here
+        self.ext_instance.extend(
+            ash_window::enumerate_required_extensions(window)?
+                .into_iter()
+                .map(|ext| ext.as_ptr()),
+        );
+
         let entry = unsafe { ash::Entry::load()? };
 
         let instance = {
@@ -64,18 +73,23 @@ impl PompeiiInitializer {
                 .api_version(VULKAN_VERSION);
 
             unsafe {
-                entry
-                    .create_instance(
-                        &vk::InstanceCreateInfo::builder()
-                            .enabled_extension_names(&self.ext_instance)
-                            .application_info(&vk_app_info),
-                        None,
-                    )?
+                entry.create_instance(
+                    &vk::InstanceCreateInfo::builder()
+                        .enabled_extension_names(&self.ext_instance)
+                        .application_info(&vk_app_info),
+                    None,
+                )?
             }
         };
 
         let debug_utils = DebugUtils::new(&entry, &instance)?;
 
-        Ok(PompeiiBuilder::new(entry, instance, debug_utils))
+        let surface = unsafe {
+            let ext = ash::extensions::khr::Surface::new(&entry, &instance);
+            let handle = ash_window::create_surface(&entry, &instance, window, None)?;
+            SurfaceWrapper { ext, handle }
+        };
+
+        Ok(PompeiiBuilder::new(entry, instance, debug_utils, surface))
     }
 }

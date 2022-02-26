@@ -1,10 +1,12 @@
+use std::collections::HashSet;
+
 use ash::vk;
-use ash::vk::DeviceQueueCreateInfoBuilder;
 use parking_lot::{Mutex, MutexGuard};
 
 use crate::{
     errors::{PompeiiError, Result},
     setup::physical_device::PhysicalDeviceInfo,
+    swapchain::SurfaceWrapper,
 };
 
 /// Represents the queue indices to use for graphics, compute and transfer.
@@ -16,6 +18,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub(crate) struct PhysicalDeviceQueueIndices {
     pub(crate) graphics: u32,
+    pub(crate) present: u32,
     pub(crate) compute: u32,
     pub(crate) transfer: u32,
 }
@@ -23,44 +26,32 @@ pub(crate) struct PhysicalDeviceQueueIndices {
 const QUEUE_PRIORITIES_ONE: [f32; 1] = [1.0];
 
 impl PhysicalDeviceQueueIndices {
-    pub(crate) fn from_device(info: &PhysicalDeviceInfo) -> Result<Self> {
+    pub(crate) fn from_device(info: &PhysicalDeviceInfo, surface: &SurfaceWrapper) -> Result<Self> {
         Ok(Self {
             graphics: Self::find_graphics_queue(info),
+            present: Self::find_present_queue(info, surface),
             compute: Self::find_compute_queue(info)?,
             transfer: Self::find_transfer_queue(info)?,
         })
     }
 
     pub(crate) fn as_queue_create_info(&self) -> Vec<vk::DeviceQueueCreateInfo> {
-        let mut create_info = vec![
-            // Graphics
-            vk::DeviceQueueCreateInfo::builder()
-                .queue_family_index(self.graphics)
-                .queue_priorities(&QUEUE_PRIORITIES_ONE)
-                .build(),
-        ];
+        let mut unique_families = HashSet::with_capacity(4);
+        unique_families.insert(self.graphics);
+        unique_families.insert(self.present);
+        unique_families.insert(self.compute);
+        unique_families.insert(self.transfer);
 
-        // Compute
-        if self.compute != self.graphics {
-            create_info.push(
+        unique_families
+            .into_iter()
+            .map(|family| {
                 vk::DeviceQueueCreateInfo::builder()
-                    .queue_family_index(self.compute)
+                    .queue_family_index(family)
+                    // SAFETY: It's const so its ok I guess
                     .queue_priorities(&QUEUE_PRIORITIES_ONE)
-                    .build(),
-            );
-        }
-
-        // Transfer
-        if self.transfer != self.compute && self.transfer != self.graphics {
-            create_info.push(
-                vk::DeviceQueueCreateInfo::builder()
-                    .queue_family_index(self.transfer)
-                    .queue_priorities(&QUEUE_PRIORITIES_ONE)
-                    .build(),
-            );
-        }
-
-        create_info
+                    .build()
+            })
+            .collect::<Vec<_>>()
     }
 
     fn find_graphics_queue(info: &PhysicalDeviceInfo) -> u32 {
@@ -72,6 +63,21 @@ impl PhysicalDeviceQueueIndices {
                     .queue_family_properties
                     .queue_flags
                     .contains(vk::QueueFlags::GRAPHICS)
+            })
+            .map(|(i, _)| i)
+            .unwrap() as _
+    }
+
+    fn find_present_queue(info: &PhysicalDeviceInfo, surface: &SurfaceWrapper) -> u32 {
+        // TODO: maybe try to get a queue that is explicitly not shared
+        info.queue_families
+            .iter()
+            .enumerate()
+            .find(|(queue, _)| unsafe {
+                surface
+                    .ext
+                    .get_physical_device_surface_support(info.handle, *queue as _, surface.handle)
+                    .unwrap()
             })
             .map(|(i, _)| i)
             .unwrap() as _
@@ -127,16 +133,20 @@ pub(crate) struct QueueWithPool {
 }
 
 pub(crate) struct DeviceQueues {
-    pub(crate) queues: [Option<Mutex<QueueWithPool>>; 3],
+    // Holds unique queues, with a maximum of 4 which only happens if we don't share any queue
+    pub(crate) queues: [Option<Mutex<QueueWithPool>>; 4],
     pub(crate) graphics_index: usize,
+    pub(crate) present_index: usize,
     pub(crate) compute_index: usize,
     pub(crate) transfer_index: usize,
+    #[cfg(debug_assertions)]
+    dropped: bool,
 }
 
 impl DeviceQueues {
     pub(crate) fn new(device: &ash::Device, indices: &PhysicalDeviceQueueIndices) -> Result<Self> {
         unsafe {
-            let mut queues = [None, None, None];
+            let mut queues = [None, None, None, None];
 
             let graphics = 0;
             queues[graphics] = Some(Mutex::new(Self::retrieve_queue_and_pool(
@@ -145,10 +155,10 @@ impl DeviceQueues {
                 Default::default(),
             )?));
 
-            let compute = if indices.compute != indices.graphics {
+            let present = if indices.present != indices.graphics {
                 queues[1] = Some(Mutex::new(Self::retrieve_queue_and_pool(
                     device,
-                    indices.compute,
+                    indices.present,
                     Default::default(),
                 )?));
                 1
@@ -156,24 +166,42 @@ impl DeviceQueues {
                 0
             };
 
-            let transfer = if indices.transfer == indices.graphics {
+            let compute = if indices.compute == indices.graphics {
                 graphics
-            } else if indices.transfer == indices.compute {
-                compute
+            } else if indices.compute == indices.present {
+                present
             } else {
                 queues[2] = Some(Mutex::new(Self::retrieve_queue_and_pool(
                     device,
-                    indices.transfer,
+                    indices.compute,
                     Default::default(),
                 )?));
                 2
             };
 
+            let transfer = if indices.transfer == indices.graphics {
+                graphics
+            } else if indices.transfer == indices.present {
+                present
+            } else if indices.transfer == indices.compute {
+                compute
+            } else {
+                queues[3] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                    device,
+                    indices.transfer,
+                    Default::default(),
+                )?));
+                3
+            };
+
             Ok(Self {
                 queues,
                 graphics_index: graphics,
+                present_index: present,
                 compute_index: compute,
                 transfer_index: transfer,
+                #[cfg(debug_assertions)]
+                dropped: false,
             })
         }
     }
@@ -195,14 +223,53 @@ impl DeviceQueues {
     }
 
     pub(crate) fn graphics(&self) -> MutexGuard<QueueWithPool> {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(!self.dropped);
+        }
         self.queues[self.graphics_index].as_ref().unwrap().lock()
     }
 
+    pub(crate) fn present(&self) -> MutexGuard<QueueWithPool> {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(!self.dropped);
+        }
+        self.queues[self.present_index].as_ref().unwrap().lock()
+    }
+
     pub(crate) fn compute(&self) -> MutexGuard<QueueWithPool> {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(!self.dropped);
+        }
         self.queues[self.compute_index].as_ref().unwrap().lock()
     }
 
     pub(crate) fn transfer(&self) -> MutexGuard<QueueWithPool> {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(!self.dropped);
+        }
         self.queues[self.transfer_index].as_ref().unwrap().lock()
+    }
+
+    pub(crate) unsafe fn destroy_pools(&mut self, device: &ash::Device) {
+        #[cfg(debug_assertions)]
+        {
+            debug_assert!(!self.dropped);
+        }
+
+        for queue in &self.queues {
+            if let Some(queue) = queue {
+                debug_assert!(!queue.is_locked());
+                device.destroy_command_pool(queue.lock().pool, None);
+            }
+        }
+
+        #[cfg(debug_assertions)]
+        {
+            self.dropped = true;
+        }
     }
 }

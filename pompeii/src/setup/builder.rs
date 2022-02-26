@@ -6,6 +6,7 @@ use crate::{
         physical_device::PhysicalDeviceInfo,
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
     },
+    swapchain::SurfaceWrapper,
     PompeiiRenderer, VULKAN_VERSION,
 };
 use ash::vk;
@@ -17,6 +18,7 @@ pub struct PompeiiBuilder {
     pub(crate) entry: ash::Entry,
     pub(crate) instance: ash::Instance,
     pub(crate) debug_utils: ManuallyDrop<DebugUtils>,
+    pub(crate) surface: SurfaceWrapper,
     physical_device: Option<DeviceAdapter>,
     device_extensions: Vec<*const c_char>,
 }
@@ -26,18 +28,24 @@ impl PompeiiBuilder {
         PompeiiInitializer::default()
     }
 
-    pub(crate) fn new(entry: ash::Entry, instance: ash::Instance, debug_utils: DebugUtils) -> Self {
+    pub(crate) fn new(
+        entry: ash::Entry,
+        instance: ash::Instance,
+        debug_utils: DebugUtils,
+        surface: SurfaceWrapper,
+    ) -> Self {
         Self {
             entry,
             instance,
             debug_utils: ManuallyDrop::new(debug_utils),
+            surface,
             physical_device: None,
             device_extensions: vec![],
         }
     }
 
     pub fn set_physical_device(mut self, device: PhysicalDeviceInfo) -> Self {
-        let queues = PhysicalDeviceQueueIndices::from_device(&device).unwrap();
+        let queues = PhysicalDeviceQueueIndices::from_device(&device, &self.surface).unwrap();
         self.physical_device = Some((device.handle, queues));
         self
     }
@@ -98,6 +106,7 @@ impl PompeiiBuilder {
             device,
             vma: Arc::new(vma),
             queues,
+            surface: self.surface,
         })
     }
 }

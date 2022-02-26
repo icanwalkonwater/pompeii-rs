@@ -1,6 +1,8 @@
 use bitflags::bitflags;
-use petgraph::data::Element::Node;
-use petgraph::prelude::{DiGraph, NodeIndex};
+use petgraph::{
+    data::Element::Node,
+    prelude::{DiGraph, NodeIndex},
+};
 
 #[derive(Copy, Clone)]
 pub struct Res(NodeIndex);
