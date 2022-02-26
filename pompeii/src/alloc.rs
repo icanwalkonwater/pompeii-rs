@@ -31,10 +31,12 @@ pub type BufferHandle = (vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)
 
 impl PompeiiAllocator {
     fn alloc_staging_buffer(&self, size: u64) -> Result<BufferHandle> {
-        self.create_buffer(
-            size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk_mem::MemoryUsage::CpuOnly,
-        )
+        unsafe {
+            self.create_buffer(
+                size,
+                vk::BufferUsageFlags::TRANSFER_SRC,
+                vk_mem::MemoryUsage::CpuOnly,
+            )
+        }
     }
 }

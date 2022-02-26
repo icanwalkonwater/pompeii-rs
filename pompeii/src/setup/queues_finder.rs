@@ -1,10 +1,11 @@
 use ash::vk;
+use ash::vk::DeviceQueueCreateInfoBuilder;
+use parking_lot::{Mutex, MutexGuard};
 
 use crate::{
     errors::{PompeiiError, Result},
     setup::physical_device::PhysicalDeviceInfo,
 };
-use parking_lot::Mutex;
 
 /// Represents the queue indices to use for graphics, compute and transfer.
 ///
@@ -12,6 +13,7 @@ use parking_lot::Mutex;
 /// but will fallback on whatever is available.
 ///
 /// So these indices can overlap.
+#[derive(Debug, Clone)]
 pub(crate) struct PhysicalDeviceQueueIndices {
     pub(crate) graphics: u32,
     pub(crate) compute: u32,
@@ -120,12 +122,12 @@ impl PhysicalDeviceQueueIndices {
 }
 
 pub(crate) struct QueueWithPool {
-    pub(crate) queue: Mutex<vk::Queue>,
-    pub(crate) pool: Mutex<vk::CommandPool>,
+    pub(crate) queue: vk::Queue,
+    pub(crate) pool: vk::CommandPool,
 }
 
 pub(crate) struct DeviceQueues {
-    pub(crate) queues: [Option<QueueWithPool>; 3],
+    pub(crate) queues: [Option<Mutex<QueueWithPool>>; 3],
     pub(crate) graphics_index: usize,
     pub(crate) compute_index: usize,
     pub(crate) transfer_index: usize,
@@ -137,12 +139,18 @@ impl DeviceQueues {
             let mut queues = [None, None, None];
 
             let graphics = 0;
-            todo!("Create queues");
-            // queues[graphics] = Some(Self::create_queue_and_pool(device, indices.graphics)?);
+            queues[graphics] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                device,
+                indices.graphics,
+                Default::default(),
+            )?));
 
             let compute = if indices.compute != indices.graphics {
-                todo!("Create queues");
-                // queues[1] = Some(Self::create_queue_and_pool(device, indices.compute)?);
+                queues[1] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                    device,
+                    indices.compute,
+                    Default::default(),
+                )?));
                 1
             } else {
                 0
@@ -153,8 +161,11 @@ impl DeviceQueues {
             } else if indices.transfer == indices.compute {
                 compute
             } else {
-                todo!("Create queues");
-                // queues[2] = Some(Self::create_queue_and_pool(device, indices.transfer)?);
+                queues[2] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                    device,
+                    indices.transfer,
+                    Default::default(),
+                )?));
                 2
             };
 
@@ -167,15 +178,31 @@ impl DeviceQueues {
         }
     }
 
-    pub(crate) fn graphics(&self) -> &QueueWithPool {
-        self.queues[self.graphics_index].as_ref().unwrap()
+    unsafe fn retrieve_queue_and_pool(
+        device: &ash::Device,
+        family_index: u32,
+        flags: vk::CommandPoolCreateFlags,
+    ) -> Result<QueueWithPool> {
+        let queue = device.get_device_queue(family_index, 0);
+        let pool = device.create_command_pool(
+            &vk::CommandPoolCreateInfo::builder()
+                .queue_family_index(family_index)
+                .flags(flags),
+            None,
+        )?;
+
+        Ok(QueueWithPool { queue, pool })
     }
 
-    pub(crate) fn compute(&self) -> &QueueWithPool {
-        self.queues[self.compute_index].as_ref().unwrap()
+    pub(crate) fn graphics(&self) -> MutexGuard<QueueWithPool> {
+        self.queues[self.graphics_index].as_ref().unwrap().lock()
     }
 
-    pub(crate) fn transfer(&self) -> &QueueWithPool {
-        self.queues[self.transfer_index].as_ref().unwrap()
+    pub(crate) fn compute(&self) -> MutexGuard<QueueWithPool> {
+        self.queues[self.compute_index].as_ref().unwrap().lock()
+    }
+
+    pub(crate) fn transfer(&self) -> MutexGuard<QueueWithPool> {
+        self.queues[self.transfer_index].as_ref().unwrap().lock()
     }
 }

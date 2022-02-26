@@ -47,7 +47,7 @@ impl PompeiiBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Arc<PompeiiRenderer>> {
+    pub fn build(self) -> Result<PompeiiRenderer> {
         let device = {
             let physical = self
                 .physical_device
@@ -91,13 +91,13 @@ impl PompeiiBuilder {
 
         let queues = DeviceQueues::new(&device, &self.physical_device.as_ref().unwrap().1)?;
 
-        Ok(Arc::new(PompeiiRenderer {
+        Ok(PompeiiRenderer {
             _entry: self.entry,
             instance: self.instance,
             debug_utils: self.debug_utils,
             device,
             vma: Arc::new(vma),
             queues,
-        }))
+        })
     }
 }

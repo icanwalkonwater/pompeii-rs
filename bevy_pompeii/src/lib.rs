@@ -2,7 +2,7 @@ use bevy_app::prelude::*;
 use bevy_core::CorePlugin;
 use bevy_ecs::prelude::*;
 use bevy_window::{CreateWindow, WindowPlugin, Windows};
-use log::{error, info};
+use log::{debug, error, info};
 use pompeii::setup::PompeiiBuilder;
 use pompeii::PompeiiRenderer;
 use std::cmp::Ordering;
@@ -23,7 +23,7 @@ impl Plugin for PompeiiPlugin {
             .expect("Failed to create pompeii builder");
 
         let (_, gpu) = builder
-            .list_suitable_physical_devices()
+            .list_suitable_physical_devices(todo!())
             .unwrap()
             .into_iter()
             .map(|gpu| (gpu.is_discrete(), gpu))
@@ -40,7 +40,7 @@ impl Plugin for PompeiiPlugin {
             .expect("Failed to create pompeii renderer");
 
         // Insert app into world
-        app.insert_resource(pompeii_app);
+        app.insert_non_send_resource(pompeii_app);
 
         // Register systems
         app.add_startup_system(attach_to_window);
@@ -51,15 +51,8 @@ impl Plugin for PompeiiPlugin {
     }
 }
 
-fn attach_to_window(mut events: EventReader<CreateWindow>, windows: Res<Windows>, renderer: Res<PompeiiRenderer>) {
-    let primary_window = events
-        .iter()
-        .filter(|win| win.id.is_primary())
-        .next()
-        .expect("A primary window need to exist for the renderer to finish its setup !");
-
-    let primary_window = windows.iter().filter(|w| w.id() == primary_window.id).next().unwrap();
-
+fn attach_to_window(windows: Res<Windows>, renderer: Res<PompeiiRenderer>) {
+    let primary_window = windows.get_primary().expect("A primary window need to exist for the renderer to finish its setup !");
     let handle = primary_window.raw_window_handle();
 
     println!("Window is {:?}", primary_window);
