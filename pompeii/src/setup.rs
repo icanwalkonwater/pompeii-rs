@@ -1,4 +1,5 @@
 pub mod builder;
+mod extensions;
 pub mod initializer;
 pub mod physical_device;
 pub mod queues_finder;

@@ -7,7 +7,12 @@ use ash::vk;
 use raw_window_handle::HasRawWindowHandle;
 
 use crate::{
-    debug_utils::DebugUtils, errors::Result, setup::builder::PompeiiBuilder,
+    debug_utils::DebugUtils,
+    errors::Result,
+    setup::{
+        builder::PompeiiBuilder,
+        extensions::{REQUIRED_DEVICE_EXTENSIONS, REQUIRED_INSTANCE_EXTENSIONS},
+    },
     swapchain::SurfaceWrapper,
 };
 
@@ -16,13 +21,21 @@ pub(crate) const VULKAN_VERSION: u32 = vk::API_VERSION_1_2;
 pub struct PompeiiInitializer {
     name: Option<CString>,
     ext_instance: Vec<*const c_char>,
+    ext_device: Vec<*const c_char>,
 }
 
 impl Default for PompeiiInitializer {
     fn default() -> Self {
         Self {
             name: None,
-            ext_instance: vec![ash::extensions::ext::DebugUtils::name().as_ptr()],
+            ext_instance: REQUIRED_INSTANCE_EXTENSIONS
+                .iter()
+                .map(|ext| ext.as_ptr())
+                .collect(),
+            ext_device: REQUIRED_DEVICE_EXTENSIONS
+                .iter()
+                .map(|ext| ext.as_ptr())
+                .collect(),
         }
     }
 }
@@ -39,6 +52,11 @@ impl PompeiiInitializer {
 
     pub fn with_instance_extension(mut self, name: &'static CStr) -> Self {
         self.ext_instance.push(name.as_ptr());
+        self
+    }
+
+    pub fn with_device_extension(mut self, name: &'static CStr) -> Self {
+        self.ext_device.push(name.as_ptr());
         self
     }
 
@@ -90,6 +108,12 @@ impl PompeiiInitializer {
             SurfaceWrapper { ext, handle }
         };
 
-        Ok(PompeiiBuilder::new(entry, instance, debug_utils, surface))
+        Ok(PompeiiBuilder::new(
+            entry,
+            instance,
+            debug_utils,
+            self.ext_device,
+            surface,
+        ))
     }
 }

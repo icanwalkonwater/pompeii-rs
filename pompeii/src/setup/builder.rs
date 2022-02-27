@@ -1,3 +1,8 @@
+use std::{mem::ManuallyDrop, os::raw::c_char, sync::Arc};
+
+use ash::vk;
+
+use crate::swapchain::SwapchainWrapper;
 use crate::{
     debug_utils::DebugUtils,
     errors::{PompeiiError, Result},
@@ -9,18 +14,17 @@ use crate::{
     swapchain::SurfaceWrapper,
     PompeiiRenderer, VULKAN_VERSION,
 };
-use ash::vk;
-use std::{ffi::CStr, mem::ManuallyDrop, os::raw::c_char, sync::Arc};
 
-type DeviceAdapter = (vk::PhysicalDevice, PhysicalDeviceQueueIndices);
+type DeviceAdapter = (PhysicalDeviceInfo, PhysicalDeviceQueueIndices);
 
 pub struct PompeiiBuilder {
     pub(crate) entry: ash::Entry,
     pub(crate) instance: ash::Instance,
+    pub(crate) ext_surface_capabilities2: ash::extensions::khr::GetSurfaceCapabilities2,
     pub(crate) debug_utils: ManuallyDrop<DebugUtils>,
+    pub(crate) device_extensions: Vec<*const c_char>,
     pub(crate) surface: SurfaceWrapper,
     physical_device: Option<DeviceAdapter>,
-    device_extensions: Vec<*const c_char>,
 }
 
 impl PompeiiBuilder {
@@ -32,30 +36,35 @@ impl PompeiiBuilder {
         entry: ash::Entry,
         instance: ash::Instance,
         debug_utils: DebugUtils,
+        device_extensions: Vec<*const c_char>,
         surface: SurfaceWrapper,
     ) -> Self {
+        let ext_surface_capabilities2 =
+            ash::extensions::khr::GetSurfaceCapabilities2::new(&entry, &instance);
+
         Self {
             entry,
             instance,
+            ext_surface_capabilities2,
             debug_utils: ManuallyDrop::new(debug_utils),
             surface,
             physical_device: None,
-            device_extensions: vec![],
+            device_extensions,
         }
     }
 
     pub fn set_physical_device(mut self, device: PhysicalDeviceInfo) -> Self {
         let queues = PhysicalDeviceQueueIndices::from_device(&device, &self.surface).unwrap();
-        self.physical_device = Some((device.handle, queues));
+        self.physical_device = Some((device, queues));
         self
     }
 
-    pub fn with_device_extension(mut self, name: &'static CStr) -> Self {
-        self.device_extensions.push(name.as_ptr());
-        self
-    }
+    pub fn build(self, window_size: (u32, u32)) -> Result<PompeiiRenderer> {
+        let physical_device = self
+            .physical_device
+            .as_ref()
+            .ok_or(PompeiiError::NoPhysicalDevicePicked)?;
 
-    pub fn build(self) -> Result<PompeiiRenderer> {
         let device = {
             let physical = self
                 .physical_device
@@ -67,14 +76,18 @@ impl PompeiiBuilder {
             let mut descriptor_indexing_features =
                 vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
 
+            let mut dynamic_rendering_features = vk::PhysicalDeviceDynamicRenderingFeaturesKHR::builder()
+                .dynamic_rendering(true);
+
             // TODO enabled things maybe
             let features = vk::PhysicalDeviceFeatures::builder();
 
             unsafe {
                 self.instance.create_device(
-                    physical.0,
+                    physical.0.handle,
                     &vk::DeviceCreateInfo::builder()
                         .push_next(&mut descriptor_indexing_features)
+                        .push_next(&mut dynamic_rendering_features)
                         .enabled_features(&features)
                         .enabled_extension_names(&self.device_extensions)
                         .queue_create_infos(&queue_create_info),
@@ -87,7 +100,7 @@ impl PompeiiBuilder {
             vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
                 instance: self.instance.clone(),
                 device: device.clone(),
-                physical_device: self.physical_device.as_ref().unwrap().0,
+                physical_device: self.physical_device.as_ref().unwrap().0.handle,
                 flags: vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION,
                 preferred_large_heap_block_size: 0,
                 frame_in_use_count: 0,
@@ -99,6 +112,37 @@ impl PompeiiBuilder {
 
         let queues = DeviceQueues::new(&device, &self.physical_device.as_ref().unwrap().1)?;
 
+        let swapchain = {
+            let ext = ash::extensions::khr::Swapchain::new(&self.instance, &device);
+            let (handle, images, image_views, format, extent) = PompeiiRenderer::create_swapchain(
+                &device,
+                &ext,
+                &physical_device.0.surface_capabilities,
+                &self.surface,
+                window_size,
+                None,
+            )?;
+
+            SwapchainWrapper {
+                ext,
+                handle,
+                images,
+                image_views,
+                format,
+                extent,
+            }
+        };
+
+        let ext_dynamic_rendering =
+            ash::extensions::khr::DynamicRendering::new(&self.instance, &device);
+
+        // Sync
+        let image_available_semaphore =
+            unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None)? };
+        let render_finished_semaphore =
+            unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None)? };
+        let in_flight_fence = unsafe { device.create_fence(&vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED), None)? };
+
         Ok(PompeiiRenderer {
             _entry: self.entry,
             instance: self.instance,
@@ -107,6 +151,11 @@ impl PompeiiBuilder {
             vma: Arc::new(vma),
             queues,
             surface: self.surface,
+            swapchain,
+            ext_dynamic_rendering,
+            image_available_semaphore,
+            render_finished_semaphore,
+            in_flight_fence,
         })
     }
 }

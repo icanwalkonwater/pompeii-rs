@@ -3,11 +3,13 @@ use std::cmp::Ordering;
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_window::Windows;
+use pompeii::PompeiiRenderer;
 
 use pompeii::setup::PompeiiBuilder;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
+    PreRender,
     Render,
 }
 
@@ -20,7 +22,8 @@ impl Plugin for PompeiiPlugin {
         app.add_startup_system(setup_renderer_with_window);
 
         // Render systems
-        app.schedule.add_stage(
+        app.add_stage(RenderStage::PreRender, SystemStage::parallel());
+        app.add_stage(
             RenderStage::Render,
             SystemStage::parallel().with_system(render_system),
         );
@@ -56,17 +59,12 @@ fn setup_renderer_with_window(windows: Res<Windows>, mut commands: Commands) {
     // Phase 2 builder to build the real renderer
     let pompeii_app = builder
         .set_physical_device(gpu)
-        .build()
+        .build((primary_window.width() as _, primary_window.height() as _))
         .expect("Failed to create pompeii renderer");
 
     commands.insert_resource(pompeii_app);
 }
 
-#[derive(Debug, Component)]
-pub struct Rendererable;
-
-fn render_system(query: Query<&Rendererable>) {
-    for renderable in query.iter() {
-        //println!("{renderable:?}");
-    }
+fn render_system(renderer: Res<PompeiiRenderer>) {
+    renderer.render().unwrap();
 }

@@ -19,3 +19,4 @@ vk-mem = { version = "=0.2.3", git = "https://github.com/icanwalkonwater/vk-mem-
 log = "^0.4"
 thiserror = "^1.0"
 parking_lot = "^0.11"
+once_cell = "^1.9"

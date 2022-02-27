@@ -1,8 +1,9 @@
-use std::ffi::CStr;
+use std::{ffi::CStr, os::raw::c_char};
 
-use ash::{vk, vk::QueueFamilyProperties2};
-use log::warn;
+use ash::vk;
+use log::{debug, info, warn};
 
+use crate::swapchain::SurfaceCapabilities;
 use crate::{
     errors::Result,
     setup::{
@@ -20,8 +21,9 @@ pub struct PhysicalDeviceInfo {
     pub features_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingFeatures,
     pub properties_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingProperties,
     pub extensions: Vec<vk::ExtensionProperties>,
-    pub queue_families: Vec<QueueFamilyProperties2>,
+    pub queue_families: Vec<vk::QueueFamilyProperties2>,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties2,
+    pub(crate) surface_capabilities: SurfaceCapabilities,
 }
 
 impl PhysicalDeviceInfo {
@@ -31,6 +33,17 @@ impl PhysicalDeviceInfo {
                 .to_str()
                 .unwrap()
         }
+    }
+
+    pub fn vulkan_version(&self) -> String {
+        let version = self.properties.properties.api_version;
+        // Ignore variant, it doesn't really matter that much
+        format!(
+            "{}.{}.{}",
+            vk::api_version_major(version),
+            vk::api_version_minor(version),
+            vk::api_version_patch(version),
+        )
     }
 
     pub fn is_discrete(&self) -> bool {
@@ -78,18 +91,43 @@ impl PompeiiBuilder {
                     .expect("Failed to enumerate device extensions");
 
                 // Query queue information
-                let mut queue_families = Vec::new();
-                queue_families.resize_with(
-                    self.instance
-                        .get_physical_device_queue_family_properties2_len(d),
-                    || vk::QueueFamilyProperties2::default(),
-                );
+                let mut queue_families =
+                    vec![
+                        Default::default();
+                        self.instance
+                            .get_physical_device_queue_family_properties2_len(d)
+                    ];
                 self.instance
                     .get_physical_device_queue_family_properties2(d, &mut queue_families);
 
+                // Query memory properties
                 let mut memory_properties = vk::PhysicalDeviceMemoryProperties2::default();
                 self.instance
                     .get_physical_device_memory_properties2(d, &mut memory_properties);
+
+                // Query surface properties
+                let surface_info =
+                    vk::PhysicalDeviceSurfaceInfo2KHR::builder().surface(self.surface.handle);
+                let surface_capabilities = self
+                    .ext_surface_capabilities2
+                    .get_physical_device_surface_capabilities2(d, &surface_info)
+                    .unwrap();
+
+                let mut surface_formats = vec![
+                    Default::default();
+                    self.ext_surface_capabilities2
+                        .get_physical_device_surface_formats2_len(d, &surface_info)
+                        .unwrap()
+                ];
+                self.ext_surface_capabilities2
+                    .get_physical_device_surface_formats2(d, &surface_info, &mut surface_formats)
+                    .unwrap();
+
+                let surface_present_modes = self
+                    .surface
+                    .ext
+                    .get_physical_device_surface_present_modes(d, self.surface.handle)
+                    .unwrap();
 
                 PhysicalDeviceInfo {
                     handle: d,
@@ -100,10 +138,18 @@ impl PompeiiBuilder {
                     extensions,
                     queue_families,
                     memory_properties,
+                    surface_capabilities: SurfaceCapabilities {
+                        capabilities: surface_capabilities,
+                        formats: surface_formats,
+                        present_modes: surface_present_modes,
+                    },
                 }
             })
             .filter(|info| {
-                if !self.is_device_suitable(info, &self.surface).unwrap() {
+                if !self
+                    .is_device_suitable(info, &self.surface, &self.device_extensions)
+                    .unwrap()
+                {
                     let name =
                         unsafe { CStr::from_ptr(info.properties.properties.device_name.as_ptr()) }
                             .to_str()
@@ -123,18 +169,60 @@ impl PompeiiBuilder {
         &self,
         info: &PhysicalDeviceInfo,
         surface: &SurfaceWrapper,
+        device_extensions: &[*const c_char],
     ) -> Result<bool> {
         // Check Vulkan version
         if info.properties.properties.api_version < VULKAN_VERSION {
+            warn!(
+                "[{}] [KO] No support for the required vulkan version",
+                info.name()
+            );
             return Ok(false);
         }
+        debug!(
+            "[{}] [OK] Recent enough vulkan version found ({})",
+            info.name(),
+            info.vulkan_version()
+        );
 
-        // TODO: check required extensions here
+        // Check extensions
+        let supports_all_extensions = device_extensions.iter().all(|ext| unsafe {
+            let ext = CStr::from_ptr(*ext);
+            let found = info
+                .extensions
+                .iter()
+                .any(|device_ext| CStr::from_ptr(device_ext.extension_name.as_ptr()) == ext);
+            if found {
+                debug!("[{}] [OK] Found extension {:?}", info.name(), ext);
+            } else {
+                warn!("[{}] [KO] Failed to find extension {:?}", info.name(), ext);
+            }
+            found
+        });
+
+        if !supports_all_extensions {
+            warn!("[{}] [KO] Not all extensions are supported !", info.name());
+            return Ok(false);
+        }
 
         // Check queues
         if let Err(_) = PhysicalDeviceQueueIndices::from_device(info, surface) {
+            warn!("[{}] [KO] Missing queues", info.name());
             return Ok(false);
         }
+
+        // Check swapchain support
+        if info.surface_capabilities.formats.is_empty()
+            || info.surface_capabilities.present_modes.is_empty()
+        {
+            warn!(
+                "[{}] [KO] Swapchain support incomplete (no formats or present modes detected)",
+                info.name()
+            );
+            return Ok(false);
+        }
+
+        info!("[{}] [OK] Physical device is suitable !", info.name());
 
         Ok(true)
     }
