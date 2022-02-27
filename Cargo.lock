@@ -1553,6 +1553,7 @@ dependencies = [
  "raw-window-handle 0.4.2",
  "thiserror",
  "vk-mem",
+ "vk-sync-fork",
 ]
 
 [[package]]
@@ -1986,6 +1987,14 @@ dependencies = [
  "ash 0.36.0+1.3.206",
  "bitflags",
  "cc",
+]
+
+[[package]]
+name = "vk-sync-fork"
+version = "0.3.0"
+source = "git+https://github.com/icanwalkonwater/vk-sync-rs.git?branch=relaxed_ash_version#6694dcfc93c7bde5b8201a0161ba7350fc670731"
+dependencies = [
+ "ash 0.36.0+1.3.206",
 ]
 
 [[package]]

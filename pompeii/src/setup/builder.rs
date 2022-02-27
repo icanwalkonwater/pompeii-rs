@@ -76,8 +76,8 @@ impl PompeiiBuilder {
             let mut descriptor_indexing_features =
                 vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
 
-            let mut dynamic_rendering_features = vk::PhysicalDeviceDynamicRenderingFeaturesKHR::builder()
-                .dynamic_rendering(true);
+            let mut dynamic_rendering_features =
+                vk::PhysicalDeviceDynamicRenderingFeaturesKHR::builder().dynamic_rendering(true);
 
             // TODO enabled things maybe
             let features = vk::PhysicalDeviceFeatures::builder();
@@ -133,6 +133,7 @@ impl PompeiiBuilder {
             }
         };
 
+        let ext_sync2 = ash::extensions::khr::Synchronization2::new(&self.instance, &device);
         let ext_dynamic_rendering =
             ash::extensions::khr::DynamicRendering::new(&self.instance, &device);
 
@@ -141,7 +142,12 @@ impl PompeiiBuilder {
             unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None)? };
         let render_finished_semaphore =
             unsafe { device.create_semaphore(&vk::SemaphoreCreateInfo::default(), None)? };
-        let in_flight_fence = unsafe { device.create_fence(&vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED), None)? };
+        let in_flight_fence = unsafe {
+            device.create_fence(
+                &vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED),
+                None,
+            )?
+        };
 
         Ok(PompeiiRenderer {
             _entry: self.entry,
@@ -152,6 +158,7 @@ impl PompeiiBuilder {
             queues,
             surface: self.surface,
             swapchain,
+            ext_sync2,
             ext_dynamic_rendering,
             image_available_semaphore,
             render_finished_semaphore,

@@ -13,6 +13,8 @@ mod images;
 mod render;
 pub mod setup;
 mod swapchain;
+mod commands;
+mod sync;
 
 pub mod errors {
     use thiserror::Error;
@@ -49,6 +51,7 @@ pub struct PompeiiRenderer {
     pub(crate) queues: DeviceQueues,
     pub(crate) surface: SurfaceWrapper,
     pub(crate) swapchain: SwapchainWrapper,
+    pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
     pub(crate) ext_dynamic_rendering: ash::extensions::khr::DynamicRendering,
 
     pub(crate) image_available_semaphore: vk::Semaphore,

@@ -11,12 +11,13 @@ readme = "../README.md"
 keywords = []
 
 [dependencies]
-ash = "^0.36"
-ash-window = "^0.9"
-raw-window-handle = "^0.4"
+ash = "0.36"
+ash-window = "0.9"
+raw-window-handle = "0.4"
 vk-mem = { version = "=0.2.3", git = "https://github.com/icanwalkonwater/vk-mem-rs.git" }
+vk-sync-fork = { version = "0.3", git = "https://github.com/icanwalkonwater/vk-sync-rs.git", branch = "relaxed_ash_version" }
 
-log = "^0.4"
-thiserror = "^1.0"
-parking_lot = "^0.11"
-once_cell = "^1.9"
+log = "0.4"
+thiserror = "1.0"
+parking_lot = "0.11"
+once_cell = "1.9"

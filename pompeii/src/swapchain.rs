@@ -1,4 +1,5 @@
 use ash::vk;
+use log::debug;
 
 use crate::{
     errors::{PompeiiError, Result},
@@ -47,6 +48,10 @@ impl PompeiiRenderer {
             .ok_or(PompeiiError::NoCompatibleColorFormatFound)?;
         let present_mode = choose_swapchain_present_mode(&info.present_modes);
         let extent = choose_swapchain_extent(&info.capabilities, window_size);
+
+        debug!("Swapchain format: {:?}", format.surface_format);
+        debug!("Swapchain present mode: {:?}", present_mode);
+        debug!("Swapchain extent: {:?}", extent);
 
         let capabilities = &info.capabilities.surface_capabilities;
 

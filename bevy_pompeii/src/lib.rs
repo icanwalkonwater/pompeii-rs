@@ -1,11 +1,13 @@
 use std::cmp::Ordering;
+use std::time::{Duration, Instant};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_window::Windows;
-use pompeii::PompeiiRenderer;
+use log::info;
 
 use pompeii::setup::PompeiiBuilder;
+use pompeii::PompeiiRenderer;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
@@ -18,6 +20,12 @@ pub struct PompeiiPlugin;
 
 impl Plugin for PompeiiPlugin {
     fn build(&self, app: &mut App) {
+        // Frame counter
+        app.insert_resource(FrameCounter {
+            last_print: Instant::now(),
+            frames: 0,
+        });
+
         // Renderer will be created in this setup system
         app.add_startup_system(setup_renderer_with_window);
 
@@ -25,7 +33,11 @@ impl Plugin for PompeiiPlugin {
         app.add_stage(RenderStage::PreRender, SystemStage::parallel());
         app.add_stage(
             RenderStage::Render,
-            SystemStage::parallel().with_system(render_system),
+            SystemStage::parallel().with_system_set(
+                SystemSet::new()
+                    .with_system(render_system)
+                    .with_system(frame_counter),
+            ),
         );
     }
 }
@@ -66,5 +78,24 @@ fn setup_renderer_with_window(windows: Res<Windows>, mut commands: Commands) {
 }
 
 fn render_system(renderer: Res<PompeiiRenderer>) {
-    renderer.render().unwrap();
+    renderer.render_and_present().unwrap();
+}
+
+#[derive(Debug)]
+struct FrameCounter {
+    last_print: Instant,
+    frames: usize,
+}
+
+fn frame_counter(mut frame_counter: ResMut<FrameCounter>) {
+    frame_counter.frames += 1;
+
+    let now = Instant::now();
+    let delta = now.duration_since(frame_counter.last_print);
+    if delta >= Duration::from_secs(1) {
+        let fps = frame_counter.frames as f32 / delta.as_secs_f32();
+        info!("FPS: {}", fps);
+        frame_counter.last_print = now;
+        frame_counter.frames = 0;
+    }
 }
