@@ -3,14 +3,13 @@ use std::{ffi::CStr, os::raw::c_char};
 use ash::vk;
 use log::{debug, info, warn};
 
-use crate::swapchain::SurfaceCapabilities;
 use crate::{
     errors::Result,
     setup::{
         builder::PompeiiBuilder, initializer::VULKAN_VERSION,
         queues_finder::PhysicalDeviceQueueIndices,
     },
-    swapchain::SurfaceWrapper,
+    swapchain::{SurfaceCapabilities, SurfaceWrapper},
 };
 
 #[derive(Debug)]

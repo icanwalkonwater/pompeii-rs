@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use ash::vk;
-use parking_lot::{Mutex, MutexGuard};
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     errors::{PompeiiError, Result},
@@ -134,7 +134,7 @@ pub(crate) struct QueueWithPool {
 
 pub(crate) struct DeviceQueues {
     // Holds unique queues, with a maximum of 4 which only happens if we don't share any queue
-    pub(crate) queues: [Option<Mutex<QueueWithPool>>; 4],
+    pub(crate) queues: [Option<ReentrantMutex<QueueWithPool>>; 4],
     pub(crate) graphics_index: usize,
     pub(crate) present_index: usize,
     pub(crate) compute_index: usize,
@@ -149,14 +149,14 @@ impl DeviceQueues {
             let mut queues = [None, None, None, None];
 
             let graphics = 0;
-            queues[graphics] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+            queues[graphics] = Some(ReentrantMutex::new(Self::retrieve_queue_and_pool(
                 device,
                 indices.graphics,
                 Default::default(),
             )?));
 
             let present = if indices.present != indices.graphics {
-                queues[1] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                queues[1] = Some(ReentrantMutex::new(Self::retrieve_queue_and_pool(
                     device,
                     indices.present,
                     Default::default(),
@@ -171,7 +171,7 @@ impl DeviceQueues {
             } else if indices.compute == indices.present {
                 present
             } else {
-                queues[2] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                queues[2] = Some(ReentrantMutex::new(Self::retrieve_queue_and_pool(
                     device,
                     indices.compute,
                     Default::default(),
@@ -186,7 +186,7 @@ impl DeviceQueues {
             } else if indices.transfer == indices.compute {
                 compute
             } else {
-                queues[3] = Some(Mutex::new(Self::retrieve_queue_and_pool(
+                queues[3] = Some(ReentrantMutex::new(Self::retrieve_queue_and_pool(
                     device,
                     indices.transfer,
                     Default::default(),
@@ -222,7 +222,7 @@ impl DeviceQueues {
         Ok(QueueWithPool { queue, pool })
     }
 
-    pub(crate) fn graphics(&self) -> MutexGuard<QueueWithPool> {
+    pub(crate) fn graphics(&self) -> ReentrantMutexGuard<QueueWithPool> {
         #[cfg(debug_assertions)]
         {
             debug_assert!(!self.dropped);
@@ -230,7 +230,7 @@ impl DeviceQueues {
         self.queues[self.graphics_index].as_ref().unwrap().lock()
     }
 
-    pub(crate) fn present(&self) -> MutexGuard<QueueWithPool> {
+    pub(crate) fn present(&self) -> ReentrantMutexGuard<QueueWithPool> {
         #[cfg(debug_assertions)]
         {
             debug_assert!(!self.dropped);
@@ -238,7 +238,7 @@ impl DeviceQueues {
         self.queues[self.present_index].as_ref().unwrap().lock()
     }
 
-    pub(crate) fn compute(&self) -> MutexGuard<QueueWithPool> {
+    pub(crate) fn compute(&self) -> ReentrantMutexGuard<QueueWithPool> {
         #[cfg(debug_assertions)]
         {
             debug_assert!(!self.dropped);
@@ -246,7 +246,7 @@ impl DeviceQueues {
         self.queues[self.compute_index].as_ref().unwrap().lock()
     }
 
-    pub(crate) fn transfer(&self) -> MutexGuard<QueueWithPool> {
+    pub(crate) fn transfer(&self) -> ReentrantMutexGuard<QueueWithPool> {
         #[cfg(debug_assertions)]
         {
             debug_assert!(!self.dropped);

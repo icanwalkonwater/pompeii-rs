@@ -7,6 +7,7 @@ publish = false
 [dev-dependencies]
 bevy = { version = "0.6", default-features = false, features = ["x11"] }
 bevy_pompeii = { version = "=0.1.0", path = "../bevy_pompeii" }
+bevy_mod_debugdump = { version = "0.3", default-features = false }
 
 anyhow = "1.0"
 

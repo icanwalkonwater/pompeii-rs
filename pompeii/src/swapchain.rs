@@ -4,15 +4,19 @@ use log::debug;
 use crate::{
     errors::{PompeiiError, Result},
     images::create_image_view_2d_basic,
-    PhysicalDeviceInfo, PompeiiRenderer,
+    PompeiiRenderer,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct SurfaceCapabilities {
     pub capabilities: vk::SurfaceCapabilities2KHR,
     pub formats: Vec<vk::SurfaceFormat2KHR>,
     pub present_modes: Vec<vk::PresentModeKHR>,
 }
+
+/// Because of the `vk::SurfaceCapabilities2KHR` not being `Send`.
+unsafe impl Send for SurfaceCapabilities {}
+unsafe impl Sync for SurfaceCapabilities {}
 
 pub(crate) struct SurfaceWrapper {
     pub(crate) ext: ash::extensions::khr::Surface,
@@ -26,6 +30,18 @@ pub(crate) struct SwapchainWrapper {
     pub(crate) image_views: Vec<vk::ImageView>,
     pub(crate) format: vk::Format,
     pub(crate) extent: vk::Extent2D,
+}
+
+impl SwapchainWrapper {
+    pub(crate) unsafe fn cleanup(&mut self, device: &ash::Device, destroy_swapchain: bool) {
+        for view in &self.image_views {
+            device.destroy_image_view(*view, None);
+        }
+
+        if destroy_swapchain {
+            self.ext.destroy_swapchain(self.handle, None);
+        }
+    }
 }
 
 impl PompeiiRenderer {
@@ -43,6 +59,9 @@ impl PompeiiRenderer {
         vk::Format,
         vk::Extent2D,
     )> {
+        debug!("Formats: {:?}", &info.formats);
+        debug!("Present modes: {:?}", &info.present_modes);
+
         // Query various parameters
         let format = choose_swapchain_format(&info.formats)
             .ok_or(PompeiiError::NoCompatibleColorFormatFound)?;
@@ -106,6 +125,80 @@ impl PompeiiRenderer {
             format.surface_format.format,
             extent,
         ))
+    }
+    pub fn recreate_swapchain(&mut self, window_size: Option<(u32, u32)>) -> Result<()> {
+        debug!("Recreating swapchain...");
+        // Wait until nothing else is happening
+        // TODO perf: maybe only wait for things that need the swapchain ?
+        unsafe {
+            self.device.device_wait_idle()?;
+        }
+
+        // Destroy resources from previous swapchain
+        unsafe {
+            self.swapchain.cleanup(&self.device, false);
+        }
+
+        let window_size =
+            window_size.unwrap_or((self.swapchain.extent.width, self.swapchain.extent.height));
+
+        // Query surface properties
+        let (surface_capabilities, surface_formats, surface_present_modes) = unsafe {
+            let ext =
+                ash::extensions::khr::GetSurfaceCapabilities2::new(&self._entry, &self.instance);
+            let surface_info =
+                vk::PhysicalDeviceSurfaceInfo2KHR::builder().surface(self.surface.handle);
+            let surface_capabilities = ext
+                .get_physical_device_surface_capabilities2(self.physical_device, &surface_info)
+                .unwrap();
+
+            let mut surface_formats = vec![
+                Default::default();
+                ext.get_physical_device_surface_formats2_len(
+                    self.physical_device,
+                    &surface_info,
+                )
+                .unwrap()
+            ];
+            ext.get_physical_device_surface_formats2(
+                self.physical_device,
+                &surface_info,
+                &mut surface_formats,
+            )
+            .unwrap();
+
+            let surface_present_modes = self
+                .surface
+                .ext
+                .get_physical_device_surface_present_modes(
+                    self.physical_device,
+                    self.surface.handle,
+                )
+                .unwrap();
+
+            (surface_capabilities, surface_formats, surface_present_modes)
+        };
+
+        let (swapchain, images, image_views, format, extent) = Self::create_swapchain(
+            &self.device,
+            &self.swapchain.ext,
+            &SurfaceCapabilities {
+                capabilities: surface_capabilities,
+                formats: surface_formats,
+                present_modes: surface_present_modes,
+            },
+            &self.surface,
+            window_size,
+            Some(self.swapchain.handle),
+        )?;
+
+        self.swapchain.handle = swapchain;
+        self.swapchain.images = images;
+        self.swapchain.image_views = image_views;
+        self.swapchain.format = format;
+        self.swapchain.extent = extent;
+
+        Ok(())
     }
 }
 

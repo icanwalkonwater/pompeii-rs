@@ -8,12 +8,12 @@ use setup::*;
 use crate::swapchain::{SurfaceWrapper, SwapchainWrapper};
 
 mod alloc;
+mod commands;
 mod debug_utils;
 mod images;
 mod render;
 pub mod setup;
 mod swapchain;
-mod commands;
 mod sync;
 
 pub mod errors {
@@ -50,6 +50,7 @@ pub struct PompeiiRenderer {
     pub(crate) _entry: ash::Entry,
     pub(crate) instance: ash::Instance,
     pub(crate) debug_utils: ManuallyDrop<DebugUtils>,
+    pub(crate) physical_device: vk::PhysicalDevice,
     pub(crate) device: ash::Device,
     pub(crate) vma: Arc<vk_mem::Allocator>,
     pub(crate) queues: DeviceQueues,
@@ -67,7 +68,9 @@ impl Drop for PompeiiRenderer {
     fn drop(&mut self) {
         unsafe {
             // Wait for frame to finish
-            self.device.wait_for_fences(&[self.in_flight_fence], true, u64::MAX).unwrap();
+            self.device
+                .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
+                .unwrap();
 
             // TODO: add destroys here
 
@@ -82,12 +85,7 @@ impl Drop for PompeiiRenderer {
             self.queues.destroy_pools(&self.device);
 
             // Swapchain
-            for view in self.swapchain.image_views.iter().copied() {
-                self.device.destroy_image_view(view, None);
-            }
-            self.swapchain
-                .ext
-                .destroy_swapchain(self.swapchain.handle, None);
+            self.swapchain.cleanup(&self.device, true);
 
             // Surface
             self.surface.ext.destroy_surface(self.surface.handle, None);

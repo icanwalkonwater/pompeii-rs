@@ -2,7 +2,6 @@ use std::{mem::ManuallyDrop, os::raw::c_char, sync::Arc};
 
 use ash::vk;
 
-use crate::swapchain::SwapchainWrapper;
 use crate::{
     debug_utils::DebugUtils,
     errors::{PompeiiError, Result},
@@ -11,7 +10,7 @@ use crate::{
         physical_device::PhysicalDeviceInfo,
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
     },
-    swapchain::SurfaceWrapper,
+    swapchain::{SurfaceWrapper, SwapchainWrapper},
     PompeiiRenderer, VULKAN_VERSION,
 };
 
@@ -153,6 +152,7 @@ impl PompeiiBuilder {
             _entry: self.entry,
             instance: self.instance,
             debug_utils: self.debug_utils,
+            physical_device: physical_device.0.handle,
             device,
             vma: Arc::new(vma),
             queues,

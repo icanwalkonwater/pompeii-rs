@@ -1,9 +1,13 @@
+use crate::{errors::Result, PompeiiRenderer};
 use ash::vk;
-use crate::{PompeiiRenderer, errors::Result};
 
 impl PompeiiRenderer {
     #[inline]
-    pub(crate) unsafe fn record_one_time_command_buffer(&self, pool: vk::CommandPool, actions: impl Fn(vk::CommandBuffer) -> Result<()>) -> Result<vk::CommandBuffer> {
+    pub(crate) unsafe fn record_one_time_command_buffer(
+        &self,
+        pool: vk::CommandPool,
+        actions: impl Fn(vk::CommandBuffer) -> Result<()>,
+    ) -> Result<vk::CommandBuffer> {
         let cmd = self.device.allocate_command_buffers(
             &vk::CommandBufferAllocateInfo::builder()
                 .command_pool(pool)

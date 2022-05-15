@@ -1,7 +1,8 @@
 use std::array::from_ref;
 
 use ash::vk;
-use vk_sync_fork::{AccessType, ImageBarrier, ImageLayout};
+use log::{debug, trace, warn};
+use vk_sync_fork::{AccessType, ImageLayout};
 
 use crate::{errors::Result, PompeiiRenderer};
 
@@ -37,7 +38,7 @@ impl PompeiiRenderer {
                             .store_op(vk::AttachmentStoreOp::STORE)
                             .clear_value(vk::ClearValue {
                                 color: vk::ClearColorValue {
-                                    float32: [1.0, 1.0, 0.0, 0.0],
+                                    float32: [0.0, 1.0, 0.0, 0.0],
                                 },
                             })
                             .build(),
@@ -60,7 +61,9 @@ impl PompeiiRenderer {
             Ok(())
         })
     }
-    pub fn render_and_present(&self) -> Result<()> {
+
+    /// Return whether or not to recreate the swapchain before next round
+    pub fn render_and_present(&self) -> Result<bool> {
         // Wait for previous frame
         unsafe {
             self.device
@@ -68,7 +71,9 @@ impl PompeiiRenderer {
             self.device.reset_fences(&[self.in_flight_fence])?;
         }
 
-        let (swapchain_image_index, _) = unsafe {
+        trace!("[Render] Start commands");
+
+        let (swapchain_image_index, is_suboptimal) = unsafe {
             self.swapchain.ext.acquire_next_image(
                 self.swapchain.handle,
                 u64::MAX,
@@ -99,21 +104,32 @@ impl PompeiiRenderer {
             )?;
         }
 
+        trace!("[Render] Submitted graphics work");
+
         // Release the lock on the graphics queue
         std::mem::drop(graphics_queue);
 
         unsafe {
             let present_queue = self.queues.present();
             let swapchains = [self.swapchain.handle];
-            self.swapchain.ext.queue_present(
+            let res = self.swapchain.ext.queue_present(
                 present_queue.queue,
                 &vk::PresentInfoKHR::builder()
                     .wait_semaphores(&signal_semaphores)
                     .swapchains(&swapchains)
                     .image_indices(&[swapchain_image_index]),
-            )?;
+            );
+
+            if let Err(vk::Result::ERROR_OUT_OF_DATE_KHR) = res {
+                warn!("Swapchain out of date, skipping this presentation");
+                return Ok(true);
+            };
+
+            res?;
         }
 
-        Ok(())
+        trace!("[Render] Submitted present work");
+
+        Ok(is_suboptimal)
     }
 }

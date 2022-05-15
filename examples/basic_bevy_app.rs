@@ -2,10 +2,13 @@ use bevy::prelude::*;
 use bevy_pompeii::PompeiiPlugin;
 
 fn main() -> anyhow::Result<()> {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(PompeiiPlugin)
-        .run();
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins).add_plugin(PompeiiPlugin);
+
+    // bevy_mod_debugdump::print_schedule(&mut app);
+
+    app.run();
 
     Ok(())
 }

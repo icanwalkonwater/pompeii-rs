@@ -1,16 +1,18 @@
-use std::cmp::Ordering;
-use std::time::{Duration, Instant};
+use std::{
+    cmp::Ordering,
+    time::{Duration, Instant},
+};
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_window::Windows;
-use log::info;
+use bevy_window::{WindowResized, Windows};
+use log::{debug, info};
 
-use pompeii::setup::PompeiiBuilder;
-use pompeii::PompeiiRenderer;
+use pompeii::{setup::PompeiiBuilder, PompeiiRenderer};
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
+    HandleResize,
     PreRender,
     Render,
 }
@@ -26,12 +28,23 @@ impl Plugin for PompeiiPlugin {
             frames: 0,
         });
 
+        app.add_event::<RecreateSwapchainEvent>();
+
         // Renderer will be created in this setup system
         app.add_startup_system(setup_renderer_with_window);
 
         // Render systems
-        app.add_stage(RenderStage::PreRender, SystemStage::parallel());
         app.add_stage(
+            RenderStage::HandleResize,
+            SystemStage::single_threaded().with_system(trigger_recreate_swapchain_system),
+        );
+        app.add_stage_after(
+            RenderStage::HandleResize,
+            RenderStage::PreRender,
+            SystemStage::single_threaded().with_system(recreate_swapchain_system),
+        );
+        app.add_stage_after(
+            RenderStage::PreRender,
             RenderStage::Render,
             SystemStage::parallel().with_system_set(
                 SystemSet::new()
@@ -77,8 +90,41 @@ fn setup_renderer_with_window(windows: Res<Windows>, mut commands: Commands) {
     commands.insert_resource(pompeii_app);
 }
 
-fn render_system(renderer: Res<PompeiiRenderer>) {
-    renderer.render_and_present().unwrap();
+struct RecreateSwapchainEvent {
+    window_size: Option<(u32, u32)>,
+}
+
+fn trigger_recreate_swapchain_system(
+    mut resize: EventReader<WindowResized>,
+    mut swapchain: EventWriter<RecreateSwapchainEvent>,
+) {
+    if let Some(WindowResized { width, height, .. }) = resize.iter().last() {
+        debug!("Trigger recreate swapchain");
+        swapchain.send(RecreateSwapchainEvent {
+            window_size: Some((*width as _, *height as _)),
+        });
+    }
+}
+
+fn recreate_swapchain_system(
+    mut events: EventReader<RecreateSwapchainEvent>,
+    mut renderer: ResMut<PompeiiRenderer>,
+) {
+    if let Some(RecreateSwapchainEvent { window_size }) = events.iter().last() {
+        renderer
+            .recreate_swapchain(*window_size)
+            .expect("Failed to recreate swapchain");
+    }
+}
+
+fn render_system(
+    renderer: Res<PompeiiRenderer>,
+    mut recreate_swapchain_events: EventWriter<RecreateSwapchainEvent>,
+) {
+    let recreate_swapchain = renderer.render_and_present().unwrap();
+    if recreate_swapchain {
+        recreate_swapchain_events.send(RecreateSwapchainEvent { window_size: None })
+    }
 }
 
 #[derive(Debug)]
