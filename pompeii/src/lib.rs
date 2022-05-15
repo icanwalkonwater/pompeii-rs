@@ -31,6 +31,10 @@ pub mod errors {
         VkError(#[from] ash::vk::Result),
         //#[error("{0}")]
         //VmaError(#[from] vk_mem::Error),
+        #[error("No graphics queue found (wtf)")]
+        NoGraphicsQueue,
+        #[error("No present queue found (wtf)")]
+        NoPresentQueue,
         #[error("No compute queue found")]
         NoComputeQueue,
         #[error("No transfer queue found")]

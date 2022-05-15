@@ -28,8 +28,8 @@ const QUEUE_PRIORITIES_ONE: [f32; 1] = [1.0];
 impl PhysicalDeviceQueueIndices {
     pub(crate) fn from_device(info: &PhysicalDeviceInfo, surface: &SurfaceWrapper) -> Result<Self> {
         Ok(Self {
-            graphics: Self::find_graphics_queue(info),
-            present: Self::find_present_queue(info, surface),
+            graphics: Self::find_graphics_queue(info)?,
+            present: Self::find_present_queue(info, surface)?,
             compute: Self::find_compute_queue(info)?,
             transfer: Self::find_transfer_queue(info)?,
         })
@@ -54,7 +54,7 @@ impl PhysicalDeviceQueueIndices {
             .collect::<Vec<_>>()
     }
 
-    fn find_graphics_queue(info: &PhysicalDeviceInfo) -> u32 {
+    fn find_graphics_queue(info: &PhysicalDeviceInfo) -> Result<u32> {
         info.queue_families
             .iter()
             .enumerate()
@@ -64,11 +64,11 @@ impl PhysicalDeviceQueueIndices {
                     .queue_flags
                     .contains(vk::QueueFlags::GRAPHICS)
             })
-            .map(|(i, _)| i)
-            .unwrap() as _
+            .map(|(i, _)| i as _)
+            .ok_or(PompeiiError::NoGraphicsQueue)
     }
 
-    fn find_present_queue(info: &PhysicalDeviceInfo, surface: &SurfaceWrapper) -> u32 {
+    fn find_present_queue(info: &PhysicalDeviceInfo, surface: &SurfaceWrapper) -> Result<u32> {
         // TODO: maybe try to get a queue that is explicitly not shared
         info.queue_families
             .iter()
@@ -79,8 +79,8 @@ impl PhysicalDeviceQueueIndices {
                     .get_physical_device_surface_support(info.handle, *queue as _, surface.handle)
                     .unwrap()
             })
-            .map(|(i, _)| i)
-            .unwrap() as _
+            .map(|(i, _)| i as _)
+            .ok_or(PompeiiError::NoPresentQueue)
     }
 
     fn find_compute_queue(info: &PhysicalDeviceInfo) -> Result<u32> {
