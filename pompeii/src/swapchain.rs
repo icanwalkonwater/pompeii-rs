@@ -14,10 +14,6 @@ pub(crate) struct SurfaceCapabilities {
     pub present_modes: Vec<vk::PresentModeKHR>,
 }
 
-/// Because of the `vk::SurfaceCapabilities2KHR` not being `Send`.
-unsafe impl Send for SurfaceCapabilities {}
-unsafe impl Sync for SurfaceCapabilities {}
-
 pub(crate) struct SurfaceWrapper {
     pub(crate) ext: ash::extensions::khr::Surface,
     pub(crate) handle: vk::SurfaceKHR,

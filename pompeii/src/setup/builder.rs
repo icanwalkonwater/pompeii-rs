@@ -96,17 +96,16 @@ impl PompeiiBuilder {
         };
 
         let vma = unsafe {
-            vk_mem::Allocator::new(&vk_mem::AllocatorCreateInfo {
-                instance: self.instance.clone(),
-                device: device.clone(),
-                physical_device: self.physical_device.as_ref().unwrap().0.handle,
-                flags: vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION,
-                preferred_large_heap_block_size: 0,
-                frame_in_use_count: 0,
-                heap_size_limits: None,
-                allocation_callbacks: None,
-                vulkan_api_version: VULKAN_VERSION,
-            })
+            vk_mem::Allocator::new(
+                vk_mem::AllocatorCreateInfo::new(
+                    &self.instance,
+                    &device,
+                    &self.physical_device.as_ref().unwrap().0.handle,
+                )
+                // TODO: when fixed in master
+                // .flags(vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION)
+                .vulkan_api_version(VULKAN_VERSION),
+            )
         }?;
 
         let queues = DeviceQueues::new(&device, &self.physical_device.as_ref().unwrap().1)?;

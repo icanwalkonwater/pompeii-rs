@@ -105,6 +105,7 @@ impl PompeiiBuilder {
                     .get_physical_device_memory_properties2(d, &mut memory_properties);
 
                 // Query surface properties
+                // TODO FIXME: don't query if the surface is not supported by the device
                 let surface_info =
                     vk::PhysicalDeviceSurfaceInfo2KHR::builder().surface(self.surface.handle);
                 let surface_capabilities = self

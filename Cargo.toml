@@ -9,5 +9,5 @@ members = [
 ]
 
 [patch.crates-io]
-ash = { git = "https://github.com/icanwalkonwater/ash.git" }
-ash-window = { git = "https://github.com/icanwalkonwater/ash.git" }
+#ash = { git = "https://github.com/icanwalkonwater/ash.git" }
+#ash-window = { git = "https://github.com/icanwalkonwater/ash.git" }

@@ -62,11 +62,8 @@ impl PompeiiInitializer {
 
     pub fn build(mut self, window: &impl HasRawWindowHandle) -> Result<PompeiiBuilder> {
         // Add window extension here
-        self.ext_instance.extend(
-            ash_window::enumerate_required_extensions(window)?
-                .into_iter()
-                .map(|ext| ext.as_ptr()),
-        );
+        self.ext_instance
+            .extend(ash_window::enumerate_required_extensions(window)?);
 
         let entry = unsafe { ash::Entry::load()? };
 

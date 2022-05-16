@@ -19,10 +19,8 @@ impl PompeiiAllocator {
                 .usage(usage)
                 .sharing_mode(vk::SharingMode::EXCLUSIVE)
                 .build(),
-            &vk_mem::AllocationCreateInfo {
-                usage: location,
-                ..Default::default()
-            },
+            &vk_mem::AllocationCreateInfo::new()
+                .usage(location),
         )?)
     }
 }
