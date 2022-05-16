@@ -8,7 +8,9 @@ fn main() -> anyhow::Result<()> {
 
     // bevy_mod_debugdump::print_schedule(&mut app);
 
-    app.run();
+    // app.run();
+
+    bevy_pompeii::gltf_loader::load_gltf();
 
     Ok(())
 }

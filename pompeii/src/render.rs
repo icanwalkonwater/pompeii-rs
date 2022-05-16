@@ -38,7 +38,7 @@ impl PompeiiRenderer {
                             .store_op(vk::AttachmentStoreOp::STORE)
                             .clear_value(vk::ClearValue {
                                 color: vk::ClearColorValue {
-                                    float32: [0.0, 1.0, 0.0, 0.0],
+                                    float32: [0.2, 0.2, 0.2, 0.0],
                                 },
                             })
                             .build(),
