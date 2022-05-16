@@ -260,11 +260,8 @@ impl DeviceQueues {
             debug_assert!(!self.dropped);
         }
 
-        for queue in &self.queues {
-            if let Some(queue) = queue {
-                debug_assert!(!queue.is_locked());
-                device.destroy_command_pool(queue.lock().pool, None);
-            }
+        for queue in self.queues.iter().flatten() {
+            device.destroy_command_pool(queue.lock().pool, None);
         }
 
         #[cfg(debug_assertions)]

@@ -205,7 +205,7 @@ impl PompeiiBuilder {
         }
 
         // Check queues
-        if let Err(_) = PhysicalDeviceQueueIndices::from_device(info, surface) {
+        if PhysicalDeviceQueueIndices::from_device(info, surface).is_err() {
             warn!("[{}] [KO] Missing queues", info.name());
             return Ok(false);
         }

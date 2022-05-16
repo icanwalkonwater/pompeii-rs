@@ -12,7 +12,6 @@ use pompeii::{setup::PompeiiBuilder, PompeiiRenderer};
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
-    HandleResize,
     PreRender,
     Render,
 }
@@ -35,18 +34,15 @@ impl Plugin for PompeiiPlugin {
 
         // Render systems
         app.add_stage(
-            RenderStage::HandleResize,
-            SystemStage::single_threaded().with_system(trigger_recreate_swapchain_system),
-        );
-        app.add_stage_after(
-            RenderStage::HandleResize,
             RenderStage::PreRender,
-            SystemStage::single_threaded().with_system(recreate_swapchain_system),
+            SystemStage::single_threaded()
+                .with_system(trigger_recreate_swapchain_system)
+                .with_system(recreate_swapchain_system.after(trigger_recreate_swapchain_system)),
         );
         app.add_stage_after(
             RenderStage::PreRender,
             RenderStage::Render,
-            SystemStage::parallel().with_system_set(
+            SystemStage::single_threaded().with_system_set(
                 SystemSet::new()
                     .with_system(render_system)
                     .with_system(frame_counter),
@@ -98,10 +94,10 @@ fn trigger_recreate_swapchain_system(
     mut resize: EventReader<WindowResized>,
     mut swapchain: EventWriter<RecreateSwapchainEvent>,
 ) {
-    if let Some(WindowResized { width, height, .. }) = resize.iter().last() {
+    if let Some(&WindowResized { width, height, .. }) = resize.iter().last() {
         debug!("Trigger recreate swapchain");
         swapchain.send(RecreateSwapchainEvent {
-            window_size: Some((*width as _, *height as _)),
+            window_size: Some((width as _, height as _)),
         });
     }
 }
@@ -110,9 +106,9 @@ fn recreate_swapchain_system(
     mut events: EventReader<RecreateSwapchainEvent>,
     mut renderer: ResMut<PompeiiRenderer>,
 ) {
-    if let Some(RecreateSwapchainEvent { window_size }) = events.iter().last() {
+    if let Some(&RecreateSwapchainEvent { window_size }) = events.iter().last() {
         renderer
-            .recreate_swapchain(*window_size)
+            .recreate_swapchain(window_size)
             .expect("Failed to recreate swapchain");
     }
 }

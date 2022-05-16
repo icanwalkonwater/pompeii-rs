@@ -44,6 +44,14 @@ impl SwapchainWrapper {
     }
 }
 
+pub(crate) type SwapchainTuple = (
+    vk::SwapchainKHR,
+    Vec<vk::Image>,
+    Vec<vk::ImageView>,
+    vk::Format,
+    vk::Extent2D,
+);
+
 impl PompeiiRenderer {
     pub(crate) fn create_swapchain(
         device: &ash::Device,
@@ -52,13 +60,7 @@ impl PompeiiRenderer {
         surface: &SurfaceWrapper,
         window_size: (u32, u32),
         old_swapchain: Option<vk::SwapchainKHR>,
-    ) -> Result<(
-        vk::SwapchainKHR,
-        Vec<vk::Image>,
-        Vec<vk::ImageView>,
-        vk::Format,
-        vk::Extent2D,
-    )> {
+    ) -> Result<SwapchainTuple> {
         debug!("Formats: {:?}", &info.formats);
         debug!("Present modes: {:?}", &info.present_modes);
 
@@ -108,12 +110,12 @@ impl PompeiiRenderer {
                 .iter()
                 .copied()
                 .map(|img| {
-                    Ok(create_image_view_2d_basic(
+                    create_image_view_2d_basic(
                         device,
                         img,
                         format.surface_format.format,
                         vk::ImageAspectFlags::COLOR,
-                    )?)
+                    )
                 })
                 .collect::<Result<_>>()?
         };

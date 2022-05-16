@@ -1,7 +1,7 @@
 use std::array::from_ref;
 
 use ash::vk;
-use log::{debug, trace, warn};
+use log::{trace, warn};
 use vk_sync_fork::{AccessType, ImageLayout};
 
 use crate::{errors::Result, PompeiiRenderer};
@@ -107,7 +107,7 @@ impl PompeiiRenderer {
         trace!("[Render] Submitted graphics work");
 
         // Release the lock on the graphics queue
-        std::mem::drop(graphics_queue);
+        drop(graphics_queue);
 
         unsafe {
             let present_queue = self.queues.present();
