@@ -75,7 +75,7 @@ impl<'a> PompeiiTransferContext<'a> {
         ))
     }
 
-    pub fn submit_and_wait(self) {
+    pub fn submit_and_wait(self) -> Result<()> {
         let queue = self.renderer.queues.transfer();
         todo!()
     }

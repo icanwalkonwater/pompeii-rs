@@ -68,7 +68,7 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
     let mut transfer_ctx = renderer.start_transfer_operations();
     let vertices_handle = transfer_ctx.create_vertex_buffer(&vertices)?;
     let indices_handle = transfer_ctx.create_index_buffer(&indices)?;
-    transfer_ctx.commit();
+    transfer_ctx.submit_and_wait()?;
 
     let meshes = meshes.into_iter().map(|mesh| {
         todo!();
