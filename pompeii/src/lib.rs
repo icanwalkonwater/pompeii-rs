@@ -15,6 +15,11 @@ mod render;
 pub mod setup;
 mod swapchain;
 mod sync;
+pub mod mesh;
+pub(crate) mod store;
+
+pub use ash;
+use crate::store::PompeiiStore;
 
 pub mod errors {
     use thiserror::Error;
@@ -43,6 +48,14 @@ pub mod errors {
         NoPhysicalDevicePicked,
         #[error("No compatible color format found")]
         NoCompatibleColorFormatFound,
+        #[error("Missing vertex position component")]
+        NoVertexPosition,
+        #[error("Missing vertex normal component")]
+        NoVertexNormal,
+        #[error("Missing vertex UV component")]
+        NoVertexUv,
+        #[error("Not an indexed model")]
+        NoModelIndices,
     }
 }
 
@@ -58,6 +71,8 @@ pub struct PompeiiRenderer {
     pub(crate) swapchain: SwapchainWrapper,
     pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
     pub(crate) ext_dynamic_rendering: ash::extensions::khr::DynamicRendering,
+
+    pub(crate) store: PompeiiStore,
 
     pub(crate) image_available_semaphore: vk::Semaphore,
     pub(crate) render_finished_semaphore: vk::Semaphore,

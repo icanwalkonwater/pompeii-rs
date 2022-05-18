@@ -11,7 +11,7 @@ use crate::{
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
     },
     swapchain::{SurfaceWrapper, SwapchainWrapper},
-    PompeiiRenderer, VULKAN_VERSION,
+    PompeiiRenderer, PompeiiStore, VULKAN_VERSION,
 };
 
 type DeviceAdapter = (PhysicalDeviceInfo, PhysicalDeviceQueueIndices);
@@ -95,18 +95,16 @@ impl PompeiiBuilder {
             }
         };
 
-        let vma = unsafe {
-            vk_mem::Allocator::new(
-                vk_mem::AllocatorCreateInfo::new(
-                    &self.instance,
-                    &device,
-                    &self.physical_device.as_ref().unwrap().0.handle,
-                )
-                // TODO: when fixed in master
-                // .flags(vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION)
-                .vulkan_api_version(VULKAN_VERSION),
+        let vma = vk_mem::Allocator::new(
+            vk_mem::AllocatorCreateInfo::new(
+                &self.instance,
+                &device,
+                &self.physical_device.as_ref().unwrap().0.handle,
             )
-        }?;
+            // TODO: when fixed in master
+            // .flags(vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION)
+            .vulkan_api_version(VULKAN_VERSION),
+        )?;
 
         let queues = DeviceQueues::new(&device, &self.physical_device.as_ref().unwrap().1)?;
 
@@ -159,6 +157,9 @@ impl PompeiiBuilder {
             swapchain,
             ext_sync2,
             ext_dynamic_rendering,
+
+            store: PompeiiStore::default(),
+
             image_available_semaphore,
             render_finished_semaphore,
             in_flight_fence,

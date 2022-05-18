@@ -10,7 +10,7 @@ fn main() -> anyhow::Result<()> {
 
     // app.run();
 
-    bevy_pompeii::gltf_loader::load_gltf();
+    bevy_pompeii::gltf_loader::load_gltf_old();
 
     Ok(())
 }
