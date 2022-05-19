@@ -1,18 +1,29 @@
+use std::array::from_ref;
 use std::path::Path;
 
+use bevy_ecs::prelude::*;
+use bevy_hierarchy::BuildWorldChildren;
+use bevy_transform::TransformBundle;
 use gltf::accessor::DataType;
 use gltf::mesh::util::ReadIndices;
 use gltf::mesh::Mode;
 use gltf::Semantic;
 use log::debug;
 
+use pompeii::alloc::BufferHandle;
 use pompeii::errors::{PompeiiError, Result};
 use pompeii::mesh::VertexPosNormUvF32;
 use pompeii::PompeiiRenderer;
+use crate::mesh::{Mesh, MeshBundle, SubMesh};
 
 // TODO: parallelize this
-pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P) -> Result<()> {
-    debug!("Loading GLTF model at {}", path.as_ref().to_path_buf().to_str().unwrap());
+pub fn load_gltf_models<P: AsRef<Path>>(world: &mut World, path: P) -> Result<()> {
+    let mut renderer = world.get_non_send_resource_mut::<PompeiiRenderer>().unwrap();
+
+    debug!(
+        "Loading GLTF model at {}",
+        path.as_ref().to_path_buf().to_str().unwrap()
+    );
     struct SubMeshIndices {
         vert_start: usize,
         vert_count: usize,
@@ -29,6 +40,8 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
     let mut meshes = Vec::new();
     let mut vertices = Vec::new();
     let mut indices = Vec::new();
+
+    // TODO Refactor that to traverse the whole scene tree properly
 
     for mesh in doc.meshes() {
         let mut sub_meshes = Vec::new();
@@ -75,8 +88,30 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
     let indices_handle = transfer_ctx.create_index_buffer(&indices)?;
     transfer_ctx.submit_and_wait()?;
 
-    let meshes = meshes.into_iter().map(|mesh| {
-        todo!();
+    // TODO: utiliser le vrai transform par exemple
+    meshes.iter().for_each(|mesh| {
+        let ent = world.spawn()
+            .insert_bundle(MeshBundle::from(TransformBundle::identity()))
+            .with_children(|builder| {
+                for sub_mesh in &mesh.sub_meshes {
+                    let &SubMeshIndices {
+                        vert_start,
+                        vert_count,
+                        index_start,
+                        index_count,
+                    } = sub_mesh;
+
+                    builder.spawn()
+                        .insert(SubMesh {
+                            vert_handle: vertices_handle,
+                            vert_start,
+                            vert_count,
+                            index_handle: indices_handle,
+                            index_start,
+                            index_count,
+                        });
+                }
+            });
     });
 
     Ok(())

@@ -7,7 +7,7 @@ use setup::*;
 
 use crate::swapchain::{SurfaceWrapper, SwapchainWrapper};
 
-mod alloc;
+pub mod alloc;
 mod commands;
 mod debug_utils;
 mod images;

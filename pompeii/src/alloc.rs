@@ -7,6 +7,7 @@ use crate::errors::Result;
 use crate::mesh::VertexPosNormUvF32;
 use crate::PompeiiRenderer;
 
+#[derive(Debug, Copy, Clone)]
 pub struct BufferHandle(usize);
 
 pub struct PompeiiTransferContext<'a> {

@@ -440,6 +440,8 @@ dependencies = [
  "bevy_app",
  "bevy_core",
  "bevy_ecs",
+ "bevy_hierarchy",
+ "bevy_transform",
  "bevy_window",
  "gltf",
  "log",
