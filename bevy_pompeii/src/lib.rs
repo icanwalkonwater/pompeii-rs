@@ -5,7 +5,6 @@ use bevy_ecs::prelude::*;
 use log::info;
 
 use pompeii::PompeiiRenderer;
-use utils::FrameCounter;
 
 use crate::swapchain_recreation as swapchain;
 use crate::swapchain_recreation::RecreateSwapchainEvent;
@@ -14,6 +13,8 @@ pub mod gltf_loader;
 pub(crate) mod setup;
 pub(crate) mod swapchain_recreation;
 pub(crate) mod utils;
+
+pub use pompeii;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
@@ -26,13 +27,11 @@ pub struct PompeiiPlugin;
 
 impl Plugin for PompeiiPlugin {
     fn build(&self, app: &mut App) {
-        // Frame counter
-        app.init_resource::<FrameCounter>();
-
+        // Events
         app.add_event::<RecreateSwapchainEvent>();
 
         // Renderer will be created in this setup system
-        app.add_startup_system(setup::setup_renderer_with_window);
+        app.add_startup_system(setup::setup_renderer_with_window.exclusive_system());
 
         // Render systems
         app.add_stage(
@@ -49,15 +48,14 @@ impl Plugin for PompeiiPlugin {
             RenderStage::Render,
             SystemStage::single_threaded().with_system_set(
                 SystemSet::new()
-                    .with_system(render_system)
-                    .with_system(utils::frame_counter),
+                    .with_system(render_system),
             ),
         );
     }
 }
 
 fn render_system(
-    renderer: Res<PompeiiRenderer>,
+    renderer: NonSend<PompeiiRenderer>,
     mut recreate_swapchain_events: EventWriter<RecreateSwapchainEvent>,
 ) {
     let recreate_swapchain = renderer.render_and_present().unwrap();

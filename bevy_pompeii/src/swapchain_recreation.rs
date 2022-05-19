@@ -29,7 +29,7 @@ pub(crate) fn trigger_recreate_swapchain_system(
 
 pub(crate) fn recreate_swapchain_system(
     mut events: EventReader<RecreateSwapchainEvent>,
-    mut renderer: ResMut<PompeiiRenderer>,
+    mut renderer: NonSendMut<PompeiiRenderer>,
 ) {
     if let Some(&RecreateSwapchainEvent { window_size }) = events.iter().last() {
         renderer

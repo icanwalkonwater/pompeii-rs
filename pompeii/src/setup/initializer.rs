@@ -16,7 +16,7 @@ use crate::{
     swapchain::SurfaceWrapper,
 };
 
-pub(crate) const VULKAN_VERSION: u32 = vk::API_VERSION_1_2;
+pub(crate) const VULKAN_VERSION: u32 = vk::API_VERSION_1_3;
 
 pub struct PompeiiInitializer {
     name: Option<CString>,

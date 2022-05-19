@@ -12,6 +12,7 @@ use pompeii::PompeiiRenderer;
 
 // TODO: parallelize this
 pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P) -> Result<()> {
+    debug!("Loading GLTF model at {}", path.as_ref().to_path_buf().to_str().unwrap());
     struct SubMeshIndices {
         vert_start: usize,
         vert_count: usize,
@@ -23,7 +24,7 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
         sub_meshes: Vec<SubMeshIndices>,
     }
 
-    let (doc, buffers, _) = gltf::import(path)?;
+    let (doc, buffers, _) = gltf::import(path).map_err(|e| PompeiiError::Generic(e.to_string()))?;
 
     let mut meshes = Vec::new();
     let mut vertices = Vec::new();
@@ -38,6 +39,9 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
 
             let reader = sub_mesh.reader(|buf| Some(&buffers[buf.index()]));
 
+            // TODO: assert same amount of pos/norm/uv
+
+            // Prepare components reader
             let pos = reader
                 .read_positions()
                 .ok_or(PompeiiError::NoVertexPosition)?;
@@ -45,6 +49,7 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
             let uv = reader.read_tex_coords(0).ok_or(PompeiiError::NoVertexUv)?;
             let index = reader.read_indices().ok_or(PompeiiError::NoModelIndices)?;
 
+            // Transform into vertices
             for (((pos, norm), uv), index) in pos.zip(norm).zip(uv.into_f32()).zip(index.into_u32())
             {
                 vertices.push(VertexPosNormUvF32 { pos, norm, uv });
@@ -75,101 +80,4 @@ pub fn load_gltf_models<P: AsRef<Path>>(renderer: &mut PompeiiRenderer, path: P)
     });
 
     Ok(())
-}
-
-pub fn load_gltf_old() {
-    let (doc, buffers, _) = gltf::import("./assets/BetterCube.glb").unwrap();
-
-    // Get first mesh
-    let mesh = doc.meshes().next().unwrap();
-    // Get first primitives
-    let sub_mesh = mesh.primitives().next().unwrap();
-    let reader = sub_mesh.reader(|buf| Some(&buffers[buf.index()]));
-    assert_eq!(sub_mesh.mode(), Mode::Triangles);
-
-    let pos_raw = {
-        let accessor = sub_mesh.get(&Semantic::Positions).unwrap();
-        let v = accessor.view().unwrap();
-        dbg!(v.buffer().index(), v.offset(), v.length());
-        &buffers[v.buffer().index()].0[v.offset()..v.offset() + v.length()]
-    };
-
-    let norm_raw = {
-        let accessor = sub_mesh.get(&Semantic::Normals).unwrap();
-        let v = accessor.view().unwrap();
-        dbg!(v.buffer().index(), v.offset(), v.length());
-        &buffers[v.buffer().index()].0[v.offset()..v.offset() + v.length()]
-    };
-
-    let uvs_raw = {
-        let accessor = sub_mesh.get(&Semantic::TexCoords(0)).unwrap();
-        let v = accessor.view().unwrap();
-        dbg!(v.buffer().index(), v.offset(), v.length());
-        &buffers[v.buffer().index()].0[v.offset()..v.offset() + v.length()]
-    };
-
-    let indices_raw = {
-        let accessor = sub_mesh.indices().unwrap();
-        assert_eq!(accessor.data_type(), DataType::U16);
-        let v = accessor.view().unwrap();
-        dbg!(v.buffer().index(), v.offset(), v.length());
-        &buffers[v.buffer().index()].0[v.offset()..v.offset() + v.length()]
-    };
-
-    // Read positions
-    let pos = reader.read_positions().unwrap().collect::<Vec<_>>();
-    let normals = reader.read_normals().unwrap().collect::<Vec<_>>();
-    let uvs = reader
-        .read_tex_coords(0)
-        .unwrap()
-        .into_f32()
-        .collect::<Vec<_>>();
-    let indices = {
-        let reader = reader.read_indices().unwrap();
-        if let ReadIndices::U16(indices) = reader {
-            indices.collect::<Vec<_>>()
-        } else {
-            panic!();
-        }
-    };
-
-    assert_eq!(pos.len() * std::mem::size_of::<[f32; 3]>(), pos_raw.len());
-    assert_eq!(&pos, unsafe {
-        let (before, data, after) = pos_raw.align_to::<[f32; 3]>();
-        assert!(before.is_empty());
-        assert!(after.is_empty());
-        data
-    });
-
-    assert_eq!(
-        normals.len() * std::mem::size_of::<[f32; 3]>(),
-        norm_raw.len()
-    );
-    assert_eq!(&normals, unsafe {
-        let (before, data, after) = norm_raw.align_to::<[f32; 3]>();
-        assert!(before.is_empty());
-        assert!(after.is_empty());
-        data
-    });
-
-    assert_eq!(uvs.len() * std::mem::size_of::<[f32; 2]>(), uvs_raw.len());
-    assert_eq!(&uvs, unsafe {
-        let (before, data, after) = uvs_raw.align_to::<[f32; 2]>();
-        assert!(before.is_empty());
-        assert!(after.is_empty());
-        data
-    });
-
-    assert_eq!(
-        indices.len() * std::mem::size_of::<u16>(),
-        indices_raw.len()
-    );
-    assert_eq!(&indices, unsafe {
-        let (before, data, after) = indices_raw.align_to::<u16>();
-        assert!(before.is_empty());
-        assert!(after.is_empty());
-        data
-    });
-
-    debug!("Nice");
 }

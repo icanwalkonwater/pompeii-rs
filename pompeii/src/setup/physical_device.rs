@@ -22,7 +22,7 @@ pub struct PhysicalDeviceInfo {
     pub extensions: Vec<vk::ExtensionProperties>,
     pub queue_families: Vec<vk::QueueFamilyProperties2>,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties2,
-    pub(crate) surface_capabilities: SurfaceCapabilities,
+    pub(crate) surface_capabilities: Option<SurfaceCapabilities>,
 }
 
 impl PhysicalDeviceInfo {
@@ -105,29 +105,38 @@ impl PompeiiBuilder {
                     .get_physical_device_memory_properties2(d, &mut memory_properties);
 
                 // Query surface properties
-                // TODO FIXME: don't query if the surface is not supported by the device
-                let surface_info =
-                    vk::PhysicalDeviceSurfaceInfo2KHR::builder().surface(self.surface.handle);
-                let surface_capabilities = self
-                    .ext_surface_capabilities2
-                    .get_physical_device_surface_capabilities2(d, &surface_info)
-                    .unwrap();
+                let surface_capabilities = if self.is_surface_supported(d, &queue_families) {
+                    let surface_info =
+                        vk::PhysicalDeviceSurfaceInfo2KHR::builder().surface(self.surface.handle);
+                    let capabilities = self
+                        .ext_surface_capabilities2
+                        .get_physical_device_surface_capabilities2(d, &surface_info)
+                        .unwrap();
 
-                let mut surface_formats = vec![
-                    Default::default();
+                    let mut formats = vec![
+                        Default::default();
+                        self.ext_surface_capabilities2
+                            .get_physical_device_surface_formats2_len(d, &surface_info)
+                            .unwrap()
+                    ];
                     self.ext_surface_capabilities2
-                        .get_physical_device_surface_formats2_len(d, &surface_info)
-                        .unwrap()
-                ];
-                self.ext_surface_capabilities2
-                    .get_physical_device_surface_formats2(d, &surface_info, &mut surface_formats)
-                    .unwrap();
+                        .get_physical_device_surface_formats2(d, &surface_info, &mut formats)
+                        .unwrap();
 
-                let surface_present_modes = self
-                    .surface
-                    .ext
-                    .get_physical_device_surface_present_modes(d, self.surface.handle)
-                    .unwrap();
+                    let present_modes = self
+                        .surface
+                        .ext
+                        .get_physical_device_surface_present_modes(d, self.surface.handle)
+                        .unwrap();
+
+                    Some(SurfaceCapabilities {
+                        capabilities,
+                        formats,
+                        present_modes,
+                    })
+                } else {
+                    None
+                };
 
                 PhysicalDeviceInfo {
                     handle: d,
@@ -138,11 +147,7 @@ impl PompeiiBuilder {
                     extensions,
                     queue_families,
                     memory_properties,
-                    surface_capabilities: SurfaceCapabilities {
-                        capabilities: surface_capabilities,
-                        formats: surface_formats,
-                        present_modes: surface_present_modes,
-                    },
+                    surface_capabilities,
                 }
             })
             .filter(|info| {
@@ -165,12 +170,32 @@ impl PompeiiBuilder {
         Ok(devices)
     }
 
+    fn is_surface_supported(
+        &self,
+        device: vk::PhysicalDevice,
+        queues: &[vk::QueueFamilyProperties2],
+    ) -> bool {
+        queues.iter().enumerate().any(|(i, _)| unsafe {
+            self.surface
+                .ext
+                .get_physical_device_surface_support(device, i as _, self.surface.handle)
+                .unwrap()
+        })
+    }
+
     fn is_device_suitable(
         &self,
         info: &PhysicalDeviceInfo,
         surface: &SurfaceWrapper,
         device_extensions: &[*const c_char],
     ) -> Result<bool> {
+        if info.surface_capabilities.is_none() {
+            warn!("[{}] [KO] No support for the surface", info.name());
+            return Ok(false);
+        }
+
+        let surface_capabilities = info.surface_capabilities.as_ref().unwrap();
+
         // Check Vulkan version
         if info.properties.properties.api_version < VULKAN_VERSION {
             warn!(
@@ -212,8 +237,8 @@ impl PompeiiBuilder {
         }
 
         // Check swapchain support
-        if info.surface_capabilities.formats.is_empty()
-            || info.surface_capabilities.present_modes.is_empty()
+        if surface_capabilities.formats.is_empty()
+            || surface_capabilities.present_modes.is_empty()
         {
             warn!(
                 "[{}] [KO] Swapchain support incomplete (no formats or present modes detected)",

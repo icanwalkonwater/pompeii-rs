@@ -65,11 +65,11 @@ unsafe extern "system" fn vulkan_debug_callback(
 
     log!(
         severity_to_level(message_severity),
-        "[{:?}] {} [{} ({})]",
+        "[{:?}] [{}/{}] {}",
         message_type,
-        message,
+        message_id_number,
         message_id_name,
-        message_id_number
+        message,
     );
 
     vk::FALSE

@@ -29,6 +29,8 @@ pub mod errors {
     #[derive(Error, Debug)]
     pub enum PompeiiError {
         #[error("{0}")]
+        Generic(String),
+        #[error("{0}")]
         LoadingError(#[from] ash::LoadingError),
         //#[error("{0}")]
         //InstanceError(#[from] ash::InstanceError),
@@ -70,7 +72,6 @@ pub struct PompeiiRenderer {
     pub(crate) surface: SurfaceWrapper,
     pub(crate) swapchain: SwapchainWrapper,
     pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
-    pub(crate) ext_dynamic_rendering: ash::extensions::khr::DynamicRendering,
 
     pub(crate) store: PompeiiStore,
 
@@ -89,6 +90,13 @@ impl Drop for PompeiiRenderer {
 
             // TODO: add destroys here
 
+            // VMA
+            let vma = Arc::get_mut(&mut self.vma)
+                .expect("There still are buffers around referencing VMA !");
+
+            self.store.cleanup(vma);
+            vma.destroy();
+
             // Sync
             self.device
                 .destroy_semaphore(self.image_available_semaphore, None);
@@ -104,11 +112,6 @@ impl Drop for PompeiiRenderer {
 
             // Surface
             self.surface.ext.destroy_surface(self.surface.handle, None);
-
-            // VMA
-            Arc::get_mut(&mut self.vma)
-                .expect("There still are buffers around referencing VMA !")
-                .destroy();
 
             // Device & instance
             self.device.destroy_device(None);

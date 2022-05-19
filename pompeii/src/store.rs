@@ -17,3 +17,17 @@ impl PompeiiStore {
         self.buffers_index.len() - 1
     }
 }
+
+impl PompeiiStore {
+    pub(crate) fn cleanup(&mut self, vma: &vk_mem::Allocator) {
+        for buff in self
+            .buffers_vertex
+            .iter()
+            .chain(self.buffers_index.iter())
+        {
+            unsafe {
+                vma.destroy_buffer(buff.handle, buff.allocation);
+            }
+        }
+    }
+}

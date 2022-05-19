@@ -72,11 +72,12 @@ impl PompeiiBuilder {
             let queue_create_info = physical.1.as_queue_create_info();
 
             // TODO enabled things maybe
-            let mut descriptor_indexing_features =
-                vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
+            let mut vk12_features = vk::PhysicalDeviceVulkan12Features::builder()
+                .descriptor_indexing(true)
+                .buffer_device_address(true);
 
-            let mut dynamic_rendering_features =
-                vk::PhysicalDeviceDynamicRenderingFeaturesKHR::builder().dynamic_rendering(true);
+            let mut vk13_features = vk::PhysicalDeviceVulkan13Features::builder()
+                .dynamic_rendering(true);
 
             // TODO enabled things maybe
             let features = vk::PhysicalDeviceFeatures::builder();
@@ -85,8 +86,8 @@ impl PompeiiBuilder {
                 self.instance.create_device(
                     physical.0.handle,
                     &vk::DeviceCreateInfo::builder()
-                        .push_next(&mut descriptor_indexing_features)
-                        .push_next(&mut dynamic_rendering_features)
+                        .push_next(&mut vk12_features)
+                        .push_next(&mut vk13_features)
                         .enabled_features(&features)
                         .enabled_extension_names(&self.device_extensions)
                         .queue_create_infos(&queue_create_info),
@@ -102,7 +103,13 @@ impl PompeiiBuilder {
                 &self.physical_device.as_ref().unwrap().0.handle,
             )
             // TODO: when fixed in master
-            // .flags(vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION)
+            .flags(unsafe {
+                vk_mem::AllocationCreateFlags::from_bits_unchecked(
+                    (vk_mem::AllocatorCreateFlags::KHR_DEDICATED_ALLOCATION
+                        | vk_mem::AllocatorCreateFlags::BUFFER_DEVICE_ADDRESS)
+                        .bits(),
+                )
+            })
             .vulkan_api_version(VULKAN_VERSION),
         )?;
 
@@ -113,7 +120,7 @@ impl PompeiiBuilder {
             let (handle, images, image_views, format, extent) = PompeiiRenderer::create_swapchain(
                 &device,
                 &ext,
-                &physical_device.0.surface_capabilities,
+                physical_device.0.surface_capabilities.as_ref().unwrap(),
                 &self.surface,
                 window_size,
                 None,
@@ -130,8 +137,6 @@ impl PompeiiBuilder {
         };
 
         let ext_sync2 = ash::extensions::khr::Synchronization2::new(&self.instance, &device);
-        let ext_dynamic_rendering =
-            ash::extensions::khr::DynamicRendering::new(&self.instance, &device);
 
         // Sync
         let image_available_semaphore =
@@ -156,7 +161,6 @@ impl PompeiiBuilder {
             surface: self.surface,
             swapchain,
             ext_sync2,
-            ext_dynamic_rendering,
 
             store: PompeiiStore::default(),
 

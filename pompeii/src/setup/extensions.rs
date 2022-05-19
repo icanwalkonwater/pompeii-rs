@@ -11,10 +11,11 @@ pub(crate) static REQUIRED_INSTANCE_EXTENSIONS: Lazy<[&CStr; 2]> = Lazy::new(|| 
     ]
 });
 
-pub(crate) static REQUIRED_DEVICE_EXTENSIONS: Lazy<[&CStr; 3]> = Lazy::new(|| {
+pub(crate) static REQUIRED_DEVICE_EXTENSIONS: Lazy<[&CStr; 1]> = Lazy::new(|| {
     [
         khr::Swapchain::name(),
-        khr::Synchronization2::name(),
-        khr::DynamicRendering::name(),
+        // Promoted to Vulkan 1.3
+        // khr::Synchronization2::name(),
+        // khr::DynamicRendering::name(),
     ]
 });

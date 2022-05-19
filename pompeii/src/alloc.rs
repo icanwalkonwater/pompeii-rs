@@ -1,3 +1,4 @@
+use std::slice::from_ref;
 use std::sync::Arc;
 
 use ash::vk;
@@ -13,6 +14,7 @@ pub struct PompeiiTransferContext<'a> {
     vma: Arc<vk_mem::Allocator>,
     ops_buffer_copy: Vec<(vk::Buffer, vk::Buffer, vk::BufferCopy)>,
     // ops_image_copy: Vec<vk::ImageCopy>,
+    to_destroy: Vec<VkBufferHandle>,
 }
 
 impl PompeiiRenderer {
@@ -21,8 +23,9 @@ impl PompeiiRenderer {
         PompeiiTransferContext {
             renderer: self,
             vma,
-            ops_buffer_copy: Default::default(),
+            ops_buffer_copy: Vec::new(),
             // ops_image_copy: Default::default(),
+            to_destroy: Vec::new(),
         }
     }
 }
@@ -48,6 +51,8 @@ impl<'a> PompeiiTransferContext<'a> {
                 .build(),
         ));
 
+        self.to_destroy.push(staging);
+
         Ok(BufferHandle(
             self.renderer.store.register_vertex_buffer(vertex_buffer),
         ))
@@ -70,21 +75,53 @@ impl<'a> PompeiiTransferContext<'a> {
                 .build(),
         ));
 
+        self.to_destroy.push(staging);
+
         Ok(BufferHandle(
             self.renderer.store.register_index_buffer(index_buffer),
         ))
     }
 
     pub fn submit_and_wait(self) -> Result<()> {
+        let device = &self.renderer.device;
         let queue = self.renderer.queues.transfer();
-        todo!()
+
+        unsafe {
+            let cmd = self
+                .renderer
+                .record_one_time_command_buffer(queue.pool, |cmd| {
+                    for (from, to, op) in &self.ops_buffer_copy {
+                        device.cmd_copy_buffer(cmd, *from, *to, from_ref(op));
+                    }
+                    Ok(())
+                })?;
+
+            let fence = device.create_fence(&vk::FenceCreateInfo::builder(), None)?;
+            let cmds = [cmd];
+            let info = vk::SubmitInfo::builder().command_buffers(&cmds);
+            device.queue_submit(queue.queue, from_ref(&info), fence)?;
+
+            // Drop queue
+            drop(queue);
+
+            // Wait
+            device.wait_for_fences(from_ref(&fence), true, u64::MAX)?;
+            device.destroy_fence(fence, None);
+
+            // Destroy staging
+            for buff in self.to_destroy {
+                self.vma.destroy_buffer(buff.handle, buff.allocation);
+            }
+        }
+
+        Ok(())
     }
 }
 
 pub struct VkBufferHandle {
-    handle: vk::Buffer,
-    allocation: vk_mem::Allocation,
-    info: vk_mem::AllocationInfo,
+    pub(crate) handle: vk::Buffer,
+    pub(crate) allocation: vk_mem::Allocation,
+    pub(crate) info: vk_mem::AllocationInfo,
 }
 
 impl From<(vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)> for VkBufferHandle {

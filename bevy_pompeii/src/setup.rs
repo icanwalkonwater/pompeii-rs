@@ -5,7 +5,9 @@ use bevy_window::Windows;
 
 use pompeii::setup::PompeiiBuilder;
 
-pub(crate) fn setup_renderer_with_window(windows: Res<Windows>, mut commands: Commands) {
+pub(crate) fn setup_renderer_with_window(world: &mut World) {
+    let windows = world.get_resource::<Windows>().unwrap();
+
     // Get window
     let primary_window = windows
         .get_primary()
@@ -37,5 +39,5 @@ pub(crate) fn setup_renderer_with_window(windows: Res<Windows>, mut commands: Co
         .build((primary_window.width() as _, primary_window.height() as _))
         .expect("Failed to create pompeii renderer");
 
-    commands.insert_resource(pompeii_app);
+    world.insert_non_send_resource(pompeii_app);
 }

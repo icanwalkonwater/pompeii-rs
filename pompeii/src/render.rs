@@ -24,7 +24,7 @@ impl PompeiiRenderer {
                 vk::ImageAspectFlags::COLOR,
             );
 
-            self.ext_dynamic_rendering.cmd_begin_rendering(
+            self.device.cmd_begin_rendering(
                 cmd,
                 &vk::RenderingInfoKHR::builder()
                     .render_area(vk::Rect2D::from(self.swapchain.extent))
@@ -45,7 +45,7 @@ impl PompeiiRenderer {
                     )),
             );
 
-            self.ext_dynamic_rendering.cmd_end_rendering(cmd);
+            self.device.cmd_end_rendering(cmd);
 
             self.cmd_sync_image_barrier(
                 cmd,
