@@ -1,24 +1,28 @@
-use std::array::from_ref;
-use std::path::Path;
+use std::{array::from_ref, path::Path};
 
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::BuildWorldChildren;
 use bevy_transform::TransformBundle;
-use gltf::accessor::DataType;
-use gltf::mesh::util::ReadIndices;
-use gltf::mesh::Mode;
-use gltf::Semantic;
+use gltf::{
+    accessor::DataType,
+    mesh::{util::ReadIndices, Mode},
+    Semantic,
+};
 use log::debug;
 
-use pompeii::alloc::BufferHandle;
-use pompeii::errors::{PompeiiError, Result};
-use pompeii::mesh::VertexPosNormUvF32;
-use pompeii::PompeiiRenderer;
 use crate::mesh::{Mesh, MeshBundle, SubMesh};
+use pompeii::{
+    alloc::BufferHandle,
+    errors::{PompeiiError, Result},
+    mesh::VertexPosNormUvF32,
+    PompeiiRenderer,
+};
 
 // TODO: parallelize this
 pub fn load_gltf_models<P: AsRef<Path>>(world: &mut World, path: P) -> Result<()> {
-    let mut renderer = world.get_non_send_resource_mut::<PompeiiRenderer>().unwrap();
+    let mut renderer = world
+        .get_non_send_resource_mut::<PompeiiRenderer>()
+        .unwrap();
 
     debug!(
         "Loading GLTF model at {}",
@@ -90,7 +94,8 @@ pub fn load_gltf_models<P: AsRef<Path>>(world: &mut World, path: P) -> Result<()
 
     // TODO: utiliser le vrai transform par exemple
     meshes.iter().for_each(|mesh| {
-        let ent = world.spawn()
+        let ent = world
+            .spawn()
             .insert_bundle(MeshBundle::from(TransformBundle::identity()))
             .with_children(|builder| {
                 for sub_mesh in &mesh.sub_meshes {
@@ -101,15 +106,14 @@ pub fn load_gltf_models<P: AsRef<Path>>(world: &mut World, path: P) -> Result<()
                         index_count,
                     } = sub_mesh;
 
-                    builder.spawn()
-                        .insert(SubMesh {
-                            vert_handle: vertices_handle,
-                            vert_start,
-                            vert_count,
-                            index_handle: indices_handle,
-                            index_start,
-                            index_count,
-                        });
+                    builder.spawn().insert(SubMesh {
+                        vert_handle: vertices_handle,
+                        vert_start,
+                        vert_count,
+                        index_handle: indices_handle,
+                        index_start,
+                        index_count,
+                    });
                 }
             });
     });

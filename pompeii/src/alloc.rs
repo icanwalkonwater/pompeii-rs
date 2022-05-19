@@ -1,11 +1,8 @@
-use std::slice::from_ref;
-use std::sync::Arc;
+use std::{slice::from_ref, sync::Arc};
 
 use ash::vk;
 
-use crate::errors::Result;
-use crate::mesh::VertexPosNormUvF32;
-use crate::PompeiiRenderer;
+use crate::{errors::Result, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
 #[derive(Debug, Copy, Clone)]
 pub struct BufferHandle(usize);

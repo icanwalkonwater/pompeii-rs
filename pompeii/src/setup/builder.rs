@@ -76,8 +76,8 @@ impl PompeiiBuilder {
                 .descriptor_indexing(true)
                 .buffer_device_address(true);
 
-            let mut vk13_features = vk::PhysicalDeviceVulkan13Features::builder()
-                .dynamic_rendering(true);
+            let mut vk13_features =
+                vk::PhysicalDeviceVulkan13Features::builder().dynamic_rendering(true);
 
             // TODO enabled things maybe
             let features = vk::PhysicalDeviceFeatures::builder();

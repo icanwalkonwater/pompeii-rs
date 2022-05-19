@@ -11,15 +11,15 @@ pub mod alloc;
 mod commands;
 mod debug_utils;
 mod images;
+pub mod mesh;
 mod render;
 pub mod setup;
+pub(crate) mod store;
 mod swapchain;
 mod sync;
-pub mod mesh;
-pub(crate) mod store;
 
-pub use ash;
 use crate::store::PompeiiStore;
+pub use ash;
 
 pub mod errors {
     use thiserror::Error;

@@ -20,11 +20,7 @@ impl PompeiiStore {
 
 impl PompeiiStore {
     pub(crate) fn cleanup(&mut self, vma: &vk_mem::Allocator) {
-        for buff in self
-            .buffers_vertex
-            .iter()
-            .chain(self.buffers_index.iter())
-        {
+        for buff in self.buffers_vertex.iter().chain(self.buffers_index.iter()) {
             unsafe {
                 vma.destroy_buffer(buff.handle, buff.allocation);
             }

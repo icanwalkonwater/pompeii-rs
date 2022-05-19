@@ -237,8 +237,7 @@ impl PompeiiBuilder {
         }
 
         // Check swapchain support
-        if surface_capabilities.formats.is_empty()
-            || surface_capabilities.present_modes.is_empty()
+        if surface_capabilities.formats.is_empty() || surface_capabilities.present_modes.is_empty()
         {
             warn!(
                 "[{}] [KO] Swapchain support incomplete (no formats or present modes detected)",

@@ -8,17 +8,16 @@ use log::{debug, info};
 
 use pompeii::PompeiiRenderer;
 
-use crate::swapchain_recreation as swapchain;
-use crate::swapchain_recreation::RecreateSwapchainEvent;
+use crate::{swapchain_recreation as swapchain, swapchain_recreation::RecreateSwapchainEvent};
 
 pub mod gltf_loader;
+pub mod mesh;
 pub(crate) mod setup;
 pub(crate) mod swapchain_recreation;
 pub(crate) mod utils;
-pub mod mesh;
 
-pub use pompeii;
 use crate::mesh::{Mesh, SubMesh};
+pub use pompeii;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {
@@ -35,7 +34,11 @@ impl Plugin for PompeiiPlugin {
         app.add_event::<RecreateSwapchainEvent>();
 
         // Renderer will be created in this setup system
-        app.add_startup_system(setup::setup_renderer_with_window.exclusive_system().at_start());
+        app.add_startup_system(
+            setup::setup_renderer_with_window
+                .exclusive_system()
+                .at_start(),
+        );
 
         // Render systems
         app.add_stage(
@@ -50,10 +53,8 @@ impl Plugin for PompeiiPlugin {
         app.add_stage_after(
             RenderStage::PreRender,
             RenderStage::Render,
-            SystemStage::single_threaded().with_system_set(
-                SystemSet::new()
-                    .with_system(render_system),
-            ),
+            SystemStage::single_threaded()
+                .with_system_set(SystemSet::new().with_system(render_system)),
         );
     }
 }
@@ -73,7 +74,7 @@ fn render_system(
         let children: &Children = children;
         let pos: &GlobalTransform = pos;
 
-        debug!("Found mesh at pos with sub meshes:", );
+        debug!("Found mesh at pos with sub meshes:",);
         debug!("{:?}", pos);
 
         for &child in children.iter() {
