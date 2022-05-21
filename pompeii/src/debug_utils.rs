@@ -1,7 +1,9 @@
-use crate::errors::Result;
-use ash::vk;
-use log::{log, Level};
 use std::{borrow::Cow, ffi::CStr};
+
+use ash::{vk, vk::Handle};
+use log::{log, Level};
+
+use crate::errors::Result;
 
 pub(crate) struct DebugUtils {
     pub(crate) loader: ash::extensions::ext::DebugUtils,
@@ -31,6 +33,24 @@ impl DebugUtils {
         };
 
         Ok(Self { loader, messenger })
+    }
+
+    pub(crate) fn name_buffer(
+        &self,
+        device: &ash::Device,
+        buffer: vk::Buffer,
+        name: &CStr,
+    ) -> Result<()> {
+        unsafe {
+            self.loader.debug_utils_set_object_name(
+                device.handle(),
+                &vk::DebugUtilsObjectNameInfoEXT::builder()
+                    .object_type(vk::ObjectType::BUFFER)
+                    .object_handle(buffer.as_raw())
+                    .object_name(name),
+            )?;
+        }
+        Ok(())
     }
 }
 

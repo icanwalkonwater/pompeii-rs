@@ -1,6 +1,9 @@
-use std::{mem::ManuallyDrop, sync::Arc};
+use std::{cell::RefCell, mem::ManuallyDrop, sync::Arc};
 
+pub use ash;
 use ash::vk;
+use log::debug;
+use parking_lot::RwLock;
 
 use debug_utils::DebugUtils;
 use setup::*;
@@ -14,12 +17,8 @@ mod images;
 pub mod mesh;
 mod render;
 pub mod setup;
-pub(crate) mod store;
 mod swapchain;
 mod sync;
-
-use crate::store::PompeiiStore;
-pub use ash;
 
 pub mod errors {
     use thiserror::Error;
@@ -70,10 +69,8 @@ pub struct PompeiiRenderer {
     pub(crate) vma: Arc<vk_mem::Allocator>,
     pub(crate) queues: DeviceQueues,
     pub(crate) surface: SurfaceWrapper,
-    pub(crate) swapchain: SwapchainWrapper,
+    pub(crate) swapchain: Arc<RwLock<SwapchainWrapper>>,
     pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
-
-    pub(crate) store: PompeiiStore,
 
     pub(crate) image_available_semaphore: vk::Semaphore,
     pub(crate) render_finished_semaphore: vk::Semaphore,
@@ -91,10 +88,7 @@ impl Drop for PompeiiRenderer {
             // TODO: add destroys here
 
             // VMA
-            let vma = Arc::get_mut(&mut self.vma)
-                .expect("There still are buffers around referencing VMA !");
-
-            self.store.cleanup(vma);
+            let vma = Arc::get_mut(&mut self.vma).unwrap();
             vma.destroy();
 
             // Sync
@@ -108,7 +102,7 @@ impl Drop for PompeiiRenderer {
             self.queues.destroy_pools(&self.device);
 
             // Swapchain
-            self.swapchain.cleanup(&self.device, true);
+            self.swapchain.write().cleanup(&self.device, true);
 
             // Surface
             self.surface.ext.destroy_surface(self.surface.handle, None);

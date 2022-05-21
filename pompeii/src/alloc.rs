@@ -1,4 +1,4 @@
-use std::{slice::from_ref, sync::Arc};
+use std::{ffi::CString, slice::from_ref, sync::Arc};
 
 use ash::vk;
 
@@ -8,7 +8,7 @@ use crate::{errors::Result, mesh::VertexPosNormUvF32, PompeiiRenderer};
 pub struct BufferHandle(usize);
 
 pub struct PompeiiTransferContext<'a> {
-    renderer: &'a mut PompeiiRenderer,
+    renderer: &'a PompeiiRenderer,
     vma: Arc<vk_mem::Allocator>,
     ops_buffer_copy: Vec<(vk::Buffer, vk::Buffer, vk::BufferCopy)>,
     // ops_image_copy: Vec<vk::ImageCopy>,
@@ -16,7 +16,7 @@ pub struct PompeiiTransferContext<'a> {
 }
 
 impl PompeiiRenderer {
-    pub fn start_transfer_operations(&mut self) -> PompeiiTransferContext {
+    pub fn start_transfer_operations(&self) -> PompeiiTransferContext {
         let vma = Arc::clone(&self.vma);
         PompeiiTransferContext {
             renderer: self,
@@ -26,16 +26,26 @@ impl PompeiiRenderer {
             to_destroy: Vec::new(),
         }
     }
+
+    pub unsafe fn free_buffer(&self, buffer: VkBufferHandle) {
+        self.vma.destroy_buffer(buffer.handle, buffer.allocation);
+    }
 }
 
 impl<'a> PompeiiTransferContext<'a> {
     pub fn create_vertex_buffer(
         &mut self,
         vertices: &[VertexPosNormUvF32],
-    ) -> Result<BufferHandle> {
+    ) -> Result<VkBufferHandle> {
         let size = (vertices.len() * std::mem::size_of::<VertexPosNormUvF32>()) as _;
         let staging = self.alloc_staging_buffer(size)?;
         let vertex_buffer = self.alloc_vertex_buffer(size)?;
+
+        self.renderer.debug_utils.name_buffer(
+            &self.renderer.device,
+            vertex_buffer.handle,
+            &CString::new(format!("Vertex Buffer (size: {})", size)).unwrap(),
+        )?;
 
         unsafe { self.store_to_buffer(&staging, vertices)? };
 
@@ -51,15 +61,19 @@ impl<'a> PompeiiTransferContext<'a> {
 
         self.to_destroy.push(staging);
 
-        Ok(BufferHandle(
-            self.renderer.store.register_vertex_buffer(vertex_buffer),
-        ))
+        Ok(vertex_buffer)
     }
 
-    pub fn create_index_buffer(&mut self, indices: &[u16]) -> Result<BufferHandle> {
+    pub fn create_index_buffer(&mut self, indices: &[u16]) -> Result<VkBufferHandle> {
         let size = (indices.len() * std::mem::size_of::<u16>()) as _;
         let staging = self.alloc_staging_buffer(size)?;
         let index_buffer = self.alloc_index_buffer(size)?;
+
+        self.renderer.debug_utils.name_buffer(
+            &self.renderer.device,
+            index_buffer.handle,
+            &CString::new(format!("Index Buffer (size: {})", size)).unwrap(),
+        )?;
 
         unsafe { self.store_to_buffer(&staging, indices)? };
 
@@ -75,9 +89,7 @@ impl<'a> PompeiiTransferContext<'a> {
 
         self.to_destroy.push(staging);
 
-        Ok(BufferHandle(
-            self.renderer.store.register_index_buffer(index_buffer),
-        ))
+        Ok(index_buffer)
     }
 
     pub fn submit_and_wait(self) -> Result<()> {
@@ -116,11 +128,15 @@ impl<'a> PompeiiTransferContext<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct VkBufferHandle {
     pub(crate) handle: vk::Buffer,
     pub(crate) allocation: vk_mem::Allocation,
     pub(crate) info: vk_mem::AllocationInfo,
 }
+
+unsafe impl Send for VkBufferHandle {}
+unsafe impl Sync for VkBufferHandle {}
 
 impl From<(vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)> for VkBufferHandle {
     fn from(
@@ -138,11 +154,19 @@ impl From<(vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)> for VkBuffer
 impl PompeiiTransferContext<'_> {
     fn alloc_staging_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
         unsafe {
-            self.create_buffer(
+            let handle = self.create_buffer(
                 size,
                 vk::BufferUsageFlags::TRANSFER_SRC,
                 vk_mem::MemoryUsage::CpuOnly,
-            )
+            )?;
+
+            self.renderer.debug_utils.name_buffer(
+                &self.renderer.device,
+                handle.handle,
+                &CString::new(format!("Staging Buffer (size: {})", size)).unwrap(),
+            )?;
+
+            Ok(handle)
         }
     }
 

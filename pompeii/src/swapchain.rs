@@ -124,21 +124,33 @@ impl PompeiiRenderer {
             extent,
         ))
     }
-    pub fn recreate_swapchain(&mut self, window_size: Option<(u32, u32)>) -> Result<()> {
+    pub fn recreate_swapchain(&self, window_size: Option<(u32, u32)>) -> Result<()> {
         debug!("Recreating swapchain...");
+
+        let mut swapchain = self.swapchain.write();
+
         // Wait until nothing else is happening
+
+        // Lock all queues
         // TODO perf: maybe only wait for things that need the swapchain ?
+        let graphics = self.queues.graphics();
+        let present = self.queues.present();
+        let compute = self.queues.compute();
+        let transfer = self.queues.transfer();
+
         unsafe {
-            self.device.device_wait_idle()?;
+            self.device.queue_wait_idle(graphics.queue)?;
+            self.device.queue_wait_idle(present.queue)?;
+            self.device.queue_wait_idle(compute.queue)?;
+            self.device.queue_wait_idle(transfer.queue)?;
         }
 
         // Destroy resources from previous swapchain
         unsafe {
-            self.swapchain.cleanup(&self.device, false);
+            swapchain.cleanup(&self.device, false);
         }
 
-        let window_size =
-            window_size.unwrap_or((self.swapchain.extent.width, self.swapchain.extent.height));
+        let window_size = window_size.unwrap_or((swapchain.extent.width, swapchain.extent.height));
 
         // Query surface properties
         let (surface_capabilities, surface_formats, surface_present_modes) = unsafe {
@@ -177,9 +189,9 @@ impl PompeiiRenderer {
             (surface_capabilities, surface_formats, surface_present_modes)
         };
 
-        let (swapchain, images, image_views, format, extent) = Self::create_swapchain(
+        let (new_swapchain, images, image_views, format, extent) = Self::create_swapchain(
             &self.device,
-            &self.swapchain.ext,
+            &swapchain.ext,
             &SurfaceCapabilities {
                 capabilities: surface_capabilities,
                 formats: surface_formats,
@@ -187,14 +199,20 @@ impl PompeiiRenderer {
             },
             &self.surface,
             window_size,
-            Some(self.swapchain.handle),
+            Some(swapchain.handle),
         )?;
 
-        self.swapchain.handle = swapchain;
-        self.swapchain.images = images;
-        self.swapchain.image_views = image_views;
-        self.swapchain.format = format;
-        self.swapchain.extent = extent;
+        swapchain.handle = new_swapchain;
+        swapchain.images = images;
+        swapchain.image_views = image_views;
+        swapchain.format = format;
+        swapchain.extent = extent;
+
+        // Release all queues
+        drop(graphics);
+        drop(present);
+        drop(compute);
+        drop(transfer);
 
         Ok(())
     }

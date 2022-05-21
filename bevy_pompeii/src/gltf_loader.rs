@@ -1,122 +1,132 @@
-use std::{array::from_ref, path::Path};
+use std::sync::{Arc, Weak};
 
-use bevy_ecs::prelude::*;
-use bevy_hierarchy::BuildWorldChildren;
-use bevy_transform::TransformBundle;
-use gltf::{
-    accessor::DataType,
-    mesh::{util::ReadIndices, Mode},
-    Semantic,
+use bevy_asset::{AssetEvent, AssetLoader, Assets, BoxedFuture, LoadContext, LoadedAsset};
+use bevy_ecs::{
+    event::EventReader,
+    system::{Res, ResMut},
 };
+use gltf::Semantic;
 use log::debug;
 
-use crate::mesh::{Mesh, MeshBundle, SubMesh};
-use pompeii::{
-    alloc::BufferHandle,
-    errors::{PompeiiError, Result},
-    mesh::VertexPosNormUvF32,
-    PompeiiRenderer,
-};
+use pompeii::{errors::PompeiiError, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
-// TODO: parallelize this
-pub fn load_gltf_models<P: AsRef<Path>>(world: &mut World, path: P) -> Result<()> {
-    let mut renderer = world
-        .get_non_send_resource_mut::<PompeiiRenderer>()
-        .unwrap();
+use crate::{mesh::SubMesh, MeshAsset};
 
-    debug!(
-        "Loading GLTF model at {}",
-        path.as_ref().to_path_buf().to_str().unwrap()
-    );
-    struct SubMeshIndices {
-        vert_start: usize,
-        vert_count: usize,
-        index_start: usize,
-        index_count: usize,
+pub struct GltfLoader {
+    renderer: Weak<PompeiiRenderer>,
+}
+
+impl From<Weak<PompeiiRenderer>> for GltfLoader {
+    fn from(renderer: Weak<PompeiiRenderer>) -> Self {
+        Self { renderer }
     }
+}
 
-    struct MeshIndices {
-        sub_meshes: Vec<SubMeshIndices>,
-    }
+impl AssetLoader for GltfLoader {
+    fn load<'a>(
+        &'a self,
+        bytes: &'a [u8],
+        load_context: &'a mut LoadContext,
+    ) -> BoxedFuture<'a, anyhow::Result<(), anyhow::Error>> {
+        Box::pin(async move {
+            let (doc, buffers, _) = gltf::import_slice(bytes)?;
 
-    let (doc, buffers, _) = gltf::import(path).map_err(|e| PompeiiError::Generic(e.to_string()))?;
+            // TODO: complete loader
 
-    let mut meshes = Vec::new();
-    let mut vertices = Vec::new();
-    let mut indices = Vec::new();
+            let gltf_mesh = doc.meshes().next().unwrap();
+            let mut sub_meshes = Vec::with_capacity(gltf_mesh.primitives().len());
 
-    // TODO Refactor that to traverse the whole scene tree properly
+            let mut vertices = Vec::new();
+            let mut indices = Vec::new();
+            for sub_mesh in gltf_mesh.primitives() {
+                let vert_start = vertices.len();
+                let index_start = indices.len();
 
-    for mesh in doc.meshes() {
-        let mut sub_meshes = Vec::new();
+                let reader = sub_mesh.reader(|buf| Some(&buffers[buf.index()]));
 
-        for sub_mesh in mesh.primitives() {
-            let vert_start = vertices.len();
-            let index_start = indices.len();
+                // Sanity check
+                let pos_count = sub_mesh
+                    .get(&Semantic::Positions)
+                    .ok_or(PompeiiError::NoVertexPosition)?
+                    .count();
+                let norm_count = sub_mesh
+                    .get(&Semantic::Normals)
+                    .ok_or(PompeiiError::NoVertexNormal)?
+                    .count();
+                let uv_count = sub_mesh
+                    .get(&Semantic::TexCoords(0))
+                    .ok_or(PompeiiError::NoVertexUv)?
+                    .count();
+                assert_eq!(pos_count, norm_count);
+                assert_eq!(norm_count, uv_count);
 
-            let reader = sub_mesh.reader(|buf| Some(&buffers[buf.index()]));
+                // Prepare components reader
+                let pos = reader.read_positions().unwrap();
+                let norm = reader.read_normals().unwrap();
+                let uv = reader.read_tex_coords(0).unwrap();
+                let index = reader.read_indices().unwrap();
 
-            // TODO: assert same amount of pos/norm/uv
+                // Transform into vertices
+                for (((pos, norm), uv), index) in
+                    pos.zip(norm).zip(uv.into_f32()).zip(index.into_u32())
+                {
+                    vertices.push(VertexPosNormUvF32 { pos, norm, uv });
+                    indices.push(index as u16);
+                }
 
-            // Prepare components reader
-            let pos = reader
-                .read_positions()
-                .ok_or(PompeiiError::NoVertexPosition)?;
-            let norm = reader.read_normals().ok_or(PompeiiError::NoVertexNormal)?;
-            let uv = reader.read_tex_coords(0).ok_or(PompeiiError::NoVertexUv)?;
-            let index = reader.read_indices().ok_or(PompeiiError::NoModelIndices)?;
+                let vert_count = vertices.len() - vert_start;
+                let index_count = indices.len() - index_start;
 
-            // Transform into vertices
-            for (((pos, norm), uv), index) in pos.zip(norm).zip(uv.into_f32()).zip(index.into_u32())
-            {
-                vertices.push(VertexPosNormUvF32 { pos, norm, uv });
-                indices.push(index as u16);
+                sub_meshes.push(SubMesh {
+                    vert_start,
+                    vert_count,
+                    index_start,
+                    index_count,
+                });
             }
 
-            let vert_count = vertices.len() - vert_start;
-            let index_count = indices.len() - index_start;
+            let renderer = self.renderer.upgrade().unwrap();
 
-            sub_meshes.push(SubMeshIndices {
-                vert_start,
-                vert_count,
-                index_start,
-                index_count,
-            });
-        }
+            let mut transfer_ctx = renderer.start_transfer_operations();
+            let vertices_handle = transfer_ctx.create_vertex_buffer(&vertices)?;
+            let indices_handle = transfer_ctx.create_index_buffer(&indices)?;
+            transfer_ctx.submit_and_wait()?;
 
-        meshes.push(MeshIndices { sub_meshes });
+            drop(renderer);
+
+            load_context.set_default_asset(LoadedAsset::new(MeshAsset {
+                vertices_handle,
+                indices_handle,
+                sub_meshes,
+            }));
+
+            Ok(())
+        })
     }
 
-    let mut transfer_ctx = renderer.start_transfer_operations();
-    let vertices_handle = transfer_ctx.create_vertex_buffer(&vertices)?;
-    let indices_handle = transfer_ctx.create_index_buffer(&indices)?;
-    transfer_ctx.submit_and_wait()?;
+    fn extensions(&self) -> &[&str] {
+        &["glb", "gltf"]
+    }
+}
 
-    // TODO: utiliser le vrai transform par exemple
-    meshes.iter().for_each(|mesh| {
-        let ent = world
-            .spawn()
-            .insert_bundle(MeshBundle::from(TransformBundle::identity()))
-            .with_children(|builder| {
-                for sub_mesh in &mesh.sub_meshes {
-                    let &SubMeshIndices {
-                        vert_start,
-                        vert_count,
-                        index_start,
-                        index_count,
-                    } = sub_mesh;
+pub(crate) fn gltf_free_mesh_asset(
+    mut events: EventReader<AssetEvent<MeshAsset>>,
+    mut assets: Res<Assets<MeshAsset>>,
+    renderer: ResMut<Arc<PompeiiRenderer>>,
+) {
+    for event in events.iter() {
+        match event {
+            AssetEvent::Removed { handle } => {
+                debug!("Freeing a mesh !");
 
-                    builder.spawn().insert(SubMesh {
-                        vert_handle: vertices_handle,
-                        vert_start,
-                        vert_count,
-                        index_handle: indices_handle,
-                        index_start,
-                        index_count,
-                    });
+                let asset = assets.get(handle).unwrap();
+
+                unsafe {
+                    renderer.free_buffer(asset.vertices_handle.clone());
+                    renderer.free_buffer(asset.indices_handle.clone());
                 }
-            });
-    });
-
-    Ok(())
+            }
+            _ => {}
+        }
+    }
 }

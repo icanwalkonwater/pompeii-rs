@@ -1,6 +1,7 @@
-use std::{mem::ManuallyDrop, os::raw::c_char, sync::Arc};
+use std::{cell::RefCell, mem::ManuallyDrop, os::raw::c_char, sync::Arc};
 
 use ash::vk;
+use parking_lot::RwLock;
 
 use crate::{
     debug_utils::DebugUtils,
@@ -11,7 +12,7 @@ use crate::{
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
     },
     swapchain::{SurfaceWrapper, SwapchainWrapper},
-    PompeiiRenderer, PompeiiStore, VULKAN_VERSION,
+    PompeiiRenderer, VULKAN_VERSION,
 };
 
 type DeviceAdapter = (PhysicalDeviceInfo, PhysicalDeviceQueueIndices);
@@ -159,10 +160,8 @@ impl PompeiiBuilder {
             vma: Arc::new(vma),
             queues,
             surface: self.surface,
-            swapchain,
+            swapchain: Arc::new(RwLock::new(swapchain)),
             ext_sync2,
-
-            store: PompeiiStore::default(),
 
             image_available_semaphore,
             render_finished_semaphore,

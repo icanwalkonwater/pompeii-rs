@@ -1,8 +1,9 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, sync::Arc};
 
+use crate::GltfLoader;
+use bevy_asset::AssetServer;
 use bevy_ecs::prelude::*;
 use bevy_window::Windows;
-
 use pompeii::setup::PompeiiBuilder;
 
 pub(crate) fn setup_renderer_with_window(world: &mut World) {
@@ -39,5 +40,10 @@ pub(crate) fn setup_renderer_with_window(world: &mut World) {
         .build((primary_window.width() as _, primary_window.height() as _))
         .expect("Failed to create pompeii renderer");
 
-    world.insert_non_send_resource(pompeii_app);
+    let renderer = Arc::new(pompeii_app);
+
+    let assets = world.get_resource::<AssetServer>().unwrap();
+    assets.add_loader(GltfLoader::from(Arc::downgrade(&renderer)));
+
+    world.insert_resource(renderer);
 }

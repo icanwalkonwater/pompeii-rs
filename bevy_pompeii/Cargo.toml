@@ -3,14 +3,22 @@ name = "bevy_pompeii"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-pompeii = { path = "../pompeii", version = "0.1.0" }
-bevy_app = { version = "^0.7", default-features = false }
-bevy_core = { version = "^0.7", default-features = false }
-bevy_ecs = { version = "^0.7", default-features = false }
-bevy_hierarchy = { version = "^0.7", default-features = false }
-bevy_transform = { version = "^0.7", default-features = false }
-bevy_window = { version = "^0.7", default-features = false }
-gltf = "1.0"
+[features]
+dynamic = ["bevy_dylib"]
 
-log = "^0.4"
+[dependencies]
+pompeii = { path = "../pompeii", version = "=0.1.0" }
+bevy_app = { version = "=0.7", default-features = false }
+bevy_core = { version = "=0.7", default-features = false }
+bevy_window = { version = "=0.7", default-features = false }
+bevy_ecs = { version = "=0.7", default-features = false }
+bevy_hierarchy = { version = "=0.7", default-features = false }
+bevy_transform = { version = "=0.7", default-features = false }
+bevy_asset = { version = "=0.7", default-features = false }
+bevy_reflect = { version = "=0.7", default-features = false }
+
+bevy_dylib = { version = "=0.7", default-features = false, optional = true }
+
+gltf = "=1.0"
+log = "=0.4"
+anyhow = "1.0"

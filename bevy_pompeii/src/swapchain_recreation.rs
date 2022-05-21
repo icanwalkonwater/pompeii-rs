@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bevy_ecs::prelude::*;
 use bevy_window::WindowResized;
 use log::debug;
@@ -29,7 +31,7 @@ pub(crate) fn trigger_recreate_swapchain_system(
 
 pub(crate) fn recreate_swapchain_system(
     mut events: EventReader<RecreateSwapchainEvent>,
-    mut renderer: NonSendMut<PompeiiRenderer>,
+    mut renderer: ResMut<Arc<PompeiiRenderer>>,
 ) {
     if let Some(&RecreateSwapchainEvent { window_size }) = events.iter().last() {
         renderer

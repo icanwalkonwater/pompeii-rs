@@ -12,6 +12,8 @@ impl PompeiiRenderer {
         pool: vk::CommandPool,
         swapchain_image_index: u32,
     ) -> Result<vk::CommandBuffer> {
+        let swapchain = self.swapchain.read();
+
         self.record_one_time_command_buffer(pool, |cmd| {
             self.cmd_sync_image_barrier(
                 cmd,
@@ -20,19 +22,19 @@ impl PompeiiRenderer {
                 ImageLayout::Optimal,
                 ImageLayout::Optimal,
                 true,
-                self.swapchain.images[swapchain_image_index as usize],
+                swapchain.images[swapchain_image_index as usize],
                 vk::ImageAspectFlags::COLOR,
             );
 
             self.device.cmd_begin_rendering(
                 cmd,
                 &vk::RenderingInfoKHR::builder()
-                    .render_area(vk::Rect2D::from(self.swapchain.extent))
+                    .render_area(vk::Rect2D::from(swapchain.extent))
                     .layer_count(1)
                     .view_mask(0)
                     .color_attachments(from_ref(
                         &vk::RenderingAttachmentInfoKHR::builder()
-                            .image_view(self.swapchain.image_views[swapchain_image_index as usize])
+                            .image_view(swapchain.image_views[swapchain_image_index as usize])
                             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                             .load_op(vk::AttachmentLoadOp::CLEAR)
                             .store_op(vk::AttachmentStoreOp::STORE)
@@ -54,7 +56,7 @@ impl PompeiiRenderer {
                 ImageLayout::Optimal,
                 ImageLayout::Optimal,
                 false,
-                self.swapchain.images[swapchain_image_index as usize],
+                swapchain.images[swapchain_image_index as usize],
                 vk::ImageAspectFlags::COLOR,
             );
 
@@ -73,9 +75,11 @@ impl PompeiiRenderer {
 
         trace!("[Render] Start commands");
 
+        let swapchain = self.swapchain.read();
+
         let (swapchain_image_index, is_suboptimal) = unsafe {
-            self.swapchain.ext.acquire_next_image(
-                self.swapchain.handle,
+            swapchain.ext.acquire_next_image(
+                swapchain.handle,
                 u64::MAX,
                 self.image_available_semaphore,
                 vk::Fence::null(),
@@ -111,8 +115,8 @@ impl PompeiiRenderer {
 
         unsafe {
             let present_queue = self.queues.present();
-            let swapchains = [self.swapchain.handle];
-            let res = self.swapchain.ext.queue_present(
+            let swapchains = [swapchain.handle];
+            let res = swapchain.ext.queue_present(
                 present_queue.queue,
                 &vk::PresentInfoKHR::builder()
                     .wait_semaphores(&signal_semaphores)
