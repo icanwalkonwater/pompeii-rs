@@ -1,13 +1,7 @@
-use std::sync::{Arc, Weak};
+use std::sync::Weak;
 
-use bevy_asset::{AssetEvent, AssetLoader, Assets, BoxedFuture, LoadContext, LoadedAsset};
-use bevy_ecs::{
-    event::EventReader,
-    system::{Res, ResMut},
-};
+use bevy_asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
 use gltf::Semantic;
-use log::debug;
-
 use pompeii::{errors::PompeiiError, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
 use crate::{mesh::SubMesh, MeshAsset};
@@ -106,27 +100,5 @@ impl AssetLoader for GltfLoader {
 
     fn extensions(&self) -> &[&str] {
         &["glb", "gltf"]
-    }
-}
-
-pub(crate) fn gltf_free_mesh_asset(
-    mut events: EventReader<AssetEvent<MeshAsset>>,
-    mut assets: Res<Assets<MeshAsset>>,
-    renderer: ResMut<Arc<PompeiiRenderer>>,
-) {
-    for event in events.iter() {
-        match event {
-            AssetEvent::Removed { handle } => {
-                debug!("Freeing a mesh !");
-
-                let asset = assets.get(handle).unwrap();
-
-                unsafe {
-                    renderer.free_buffer(asset.vertices_handle.clone());
-                    renderer.free_buffer(asset.indices_handle.clone());
-                }
-            }
-            _ => {}
-        }
     }
 }

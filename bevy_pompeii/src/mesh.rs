@@ -1,12 +1,13 @@
+use std::sync::Arc;
+
 use bevy_app::AppExit;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_transform::TransformBundle;
+use log::trace;
 
-use log::{debug, trace};
 use pompeii::{alloc::VkBufferHandle, PompeiiRenderer};
-use std::sync::Arc;
 
 #[derive(Debug, Bundle)]
 pub struct MeshBundle {
@@ -63,6 +64,28 @@ pub(crate) fn free_mesh_on_exit(
                 renderer.free_buffer(mesh.vertices_handle.clone());
                 renderer.free_buffer(mesh.indices_handle.clone());
             }
+        }
+    }
+    // Don't care about removing the component or asset because this is the last things we are exiting.
+}
+
+pub(crate) fn free_unused_mesh_asset(
+    mut events: EventReader<AssetEvent<MeshAsset>>,
+    mut assets: Res<Assets<MeshAsset>>,
+    renderer: ResMut<Arc<PompeiiRenderer>>,
+) {
+    for event in events.iter() {
+        match event {
+            AssetEvent::Removed { handle } => {
+                trace!("Freeing a mesh");
+
+                let asset = assets.get(handle).unwrap();
+                unsafe {
+                    renderer.free_buffer(asset.vertices_handle.clone());
+                    renderer.free_buffer(asset.indices_handle.clone());
+                }
+            }
+            _ => {}
         }
     }
 }
