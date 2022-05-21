@@ -4,6 +4,7 @@ pub use ash;
 use ash::vk;
 use log::debug;
 use parking_lot::RwLock;
+pub use vk_mem;
 
 use debug_utils::DebugUtils;
 use setup::*;

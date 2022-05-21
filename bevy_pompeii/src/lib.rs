@@ -10,7 +10,6 @@ use crate::{
     gltf_loader::GltfLoader, mesh::MeshAsset, swapchain_recreation as swapchain,
     swapchain_recreation::RecreateSwapchainEvent,
 };
-use mesh::{free_mesh_on_exit, free_unused_mesh_asset};
 
 pub mod gltf_loader;
 pub mod mesh;
@@ -34,10 +33,6 @@ impl Plugin for PompeiiPlugin {
 
         // Loader will be added later in the setup code
         app.add_asset::<MeshAsset>();
-        // Free mesh when asset is dropped
-        app.add_system(free_unused_mesh_asset);
-        // Free mesh on system exit
-        app.add_system_to_stage(CoreStage::Last, free_mesh_on_exit);
 
         // Renderer will be created in this setup system
         app.add_startup_system(
