@@ -1,11 +1,12 @@
 use std::sync::{Arc, Weak};
 
 use bevy_asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
+use bevy_reflect::List;
 use gltf::Semantic;
 
 use pompeii::{errors::PompeiiError, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
-use crate::{mesh::SubMesh, MeshAsset};
+use crate::MeshAsset;
 
 pub struct GltfLoader {
     renderer: Weak<PompeiiRenderer>,
@@ -72,12 +73,7 @@ impl AssetLoader for GltfLoader {
                 let vert_count = vertices.len() - vert_start;
                 let index_count = indices.len() - index_start;
 
-                sub_meshes.push(SubMesh {
-                    vert_start,
-                    vert_count,
-                    index_start,
-                    index_count,
-                });
+                sub_meshes.push((vert_start, vert_count, index_start, index_count));
             }
 
             let renderer = self.renderer.upgrade().unwrap();
@@ -87,11 +83,12 @@ impl AssetLoader for GltfLoader {
             let indices_handle = transfer_ctx.create_index_buffer(&indices)?;
             transfer_ctx.submit_and_wait()?;
 
+            let mesh =
+                renderer.create_mesh(vertices_handle, indices_handle, sub_meshes.into_iter());
+
             load_context.set_default_asset(LoadedAsset::new(MeshAsset {
                 renderer: Arc::downgrade(&renderer),
-                vertices_handle,
-                indices_handle,
-                sub_meshes,
+                mesh,
             }));
 
             drop(renderer);
