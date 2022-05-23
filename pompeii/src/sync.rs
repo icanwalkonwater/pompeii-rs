@@ -1,5 +1,5 @@
 use ash::vk;
-use vk_sync_fork::{AccessType, ImageBarrier, ImageLayout};
+use vk_sync_fork::{AccessType, GlobalBarrier, ImageBarrier, ImageLayout};
 
 use crate::PompeiiRenderer;
 

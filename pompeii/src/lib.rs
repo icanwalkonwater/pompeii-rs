@@ -20,6 +20,8 @@ mod render;
 pub mod setup;
 mod swapchain;
 mod sync;
+pub mod acceleration_structure;
+pub(crate) mod utils;
 
 pub mod errors {
     use thiserror::Error;
@@ -72,6 +74,7 @@ pub struct PompeiiRenderer {
     pub(crate) surface: SurfaceWrapper,
     pub(crate) swapchain: Arc<RwLock<SwapchainWrapper>>,
     pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
+    pub(crate) ext_acceleration_structure: ash::extensions::khr::AccelerationStructure,
 
     pub(crate) image_available_semaphore: vk::Semaphore,
     pub(crate) render_finished_semaphore: vk::Semaphore,

@@ -90,20 +90,16 @@ impl PompeiiRenderer {
         let render_commands =
             unsafe { self.record_render_commands(graphics_queue.pool, swapchain_image_index)? };
 
-        let commands = [render_commands];
         let wait_semaphores = [self.image_available_semaphore];
         let signal_semaphores = [self.render_finished_semaphore];
 
-        let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(&wait_semaphores)
-            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-            .command_buffers(&commands)
-            .signal_semaphores(&signal_semaphores);
-
         unsafe {
-            self.device.queue_submit(
+            self.submit_to_queue_with_fence(
                 graphics_queue.queue,
-                from_ref(&submit_info.build()),
+                render_commands,
+                &[self.image_available_semaphore],
+                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                &[self.render_finished_semaphore],
                 self.in_flight_fence,
             )?;
         }

@@ -138,6 +138,7 @@ impl PompeiiBuilder {
         };
 
         let ext_sync2 = ash::extensions::khr::Synchronization2::new(&self.instance, &device);
+        let ext_acceleration_structure = ash::extensions::khr::AccelerationStructure::new(&self.instance, &device);
 
         // Sync
         let image_available_semaphore =
@@ -162,6 +163,7 @@ impl PompeiiBuilder {
             surface: self.surface,
             swapchain: Arc::new(RwLock::new(swapchain)),
             ext_sync2,
+            ext_acceleration_structure,
 
             image_available_semaphore,
             render_finished_semaphore,

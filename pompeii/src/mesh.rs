@@ -1,6 +1,11 @@
+use ash::vk;
+
 use crate::{alloc::VkBufferHandle, PompeiiRenderer};
 
-pub trait Vertex {}
+pub trait MeshVertex {
+    fn format() -> vk::Format;
+    fn stride() -> vk::DeviceSize;
+}
 
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -10,7 +15,25 @@ pub struct VertexPosNormUvF32 {
     pub uv: [f32; 2],
 }
 
-impl Vertex for VertexPosNormUvF32 {}
+impl MeshVertex for VertexPosNormUvF32 {
+    fn format() -> vk::Format {
+        vk::Format::R32G32B32_SFLOAT
+    }
+
+    fn stride() -> vk::DeviceSize {
+        std::mem::size_of::<VertexPosNormUvF32>() as _
+    }
+}
+
+pub trait MeshIndex {
+    fn index_type() -> vk::IndexType;
+}
+
+impl MeshIndex for u16 {
+    fn index_type() -> vk::IndexType {
+        vk::IndexType::UINT16
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Mesh {

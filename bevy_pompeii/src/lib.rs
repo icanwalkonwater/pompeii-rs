@@ -16,6 +16,7 @@ pub mod mesh;
 pub(crate) mod setup;
 pub(crate) mod swapchain_recreation;
 pub(crate) mod utils;
+pub(crate) mod accel_struct;
 
 #[derive(Clone, Hash, Debug, Eq, PartialEq, StageLabel)]
 pub enum RenderStage {

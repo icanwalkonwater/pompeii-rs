@@ -1,3 +1,4 @@
+use std::slice::from_ref;
 use std::sync::{Arc, Weak};
 
 use bevy_asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
@@ -85,6 +86,9 @@ impl AssetLoader for GltfLoader {
 
             let mesh =
                 renderer.create_mesh(vertices_handle, indices_handle, sub_meshes.into_iter());
+
+            // TODO
+            // let blas = renderer.create_blas(from_ref(&mesh));
 
             load_context.set_default_asset(LoadedAsset::new(MeshAsset {
                 renderer: Arc::downgrade(&renderer),

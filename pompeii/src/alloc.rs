@@ -38,8 +38,8 @@ impl<'a> PompeiiTransferContext<'a> {
         vertices: &[VertexPosNormUvF32],
     ) -> Result<VkBufferHandle> {
         let size = (vertices.len() * std::mem::size_of::<VertexPosNormUvF32>()) as _;
-        let staging = self.alloc_staging_buffer(size)?;
-        let vertex_buffer = self.alloc_vertex_buffer(size)?;
+        let staging = self.renderer.alloc_staging_buffer(size)?;
+        let vertex_buffer = self.renderer.alloc_vertex_buffer(size)?;
 
         self.renderer.debug_utils.name_buffer(
             &self.renderer.device,
@@ -47,7 +47,7 @@ impl<'a> PompeiiTransferContext<'a> {
             &CString::new(format!("Vertex Buffer (size: {})", size)).unwrap(),
         )?;
 
-        unsafe { self.store_to_buffer(&staging, vertices)? };
+        unsafe { self.renderer.store_to_buffer(&staging, vertices)? };
 
         self.ops_buffer_copy.push((
             staging.handle,
@@ -66,8 +66,8 @@ impl<'a> PompeiiTransferContext<'a> {
 
     pub fn create_index_buffer(&mut self, indices: &[u16]) -> Result<VkBufferHandle> {
         let size = (indices.len() * std::mem::size_of::<u16>()) as _;
-        let staging = self.alloc_staging_buffer(size)?;
-        let index_buffer = self.alloc_index_buffer(size)?;
+        let staging = self.renderer.alloc_staging_buffer(size)?;
+        let index_buffer = self.renderer.alloc_index_buffer(size)?;
 
         self.renderer.debug_utils.name_buffer(
             &self.renderer.device,
@@ -75,7 +75,7 @@ impl<'a> PompeiiTransferContext<'a> {
             &CString::new(format!("Index Buffer (size: {})", size)).unwrap(),
         )?;
 
-        unsafe { self.store_to_buffer(&staging, indices)? };
+        unsafe { self.renderer.store_to_buffer(&staging, indices)? };
 
         self.ops_buffer_copy.push((
             staging.handle,
@@ -151,8 +151,8 @@ impl From<(vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)> for VkBuffer
 }
 
 // Utils methods
-impl PompeiiTransferContext<'_> {
-    fn alloc_staging_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
+impl PompeiiRenderer {
+    pub(crate) fn alloc_staging_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
         unsafe {
             let handle = self.create_buffer(
                 size,
@@ -160,8 +160,8 @@ impl PompeiiTransferContext<'_> {
                 vk_mem::MemoryUsage::CpuOnly,
             )?;
 
-            self.renderer.debug_utils.name_buffer(
-                &self.renderer.device,
+            self.debug_utils.name_buffer(
+                &self.device,
                 handle.handle,
                 &CString::new(format!("Staging Buffer (size: {})", size)).unwrap(),
             )?;
@@ -170,7 +170,7 @@ impl PompeiiTransferContext<'_> {
         }
     }
 
-    fn alloc_vertex_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
+    pub(crate) fn alloc_vertex_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
         unsafe {
             self.create_buffer(
                 size,
@@ -182,7 +182,7 @@ impl PompeiiTransferContext<'_> {
         }
     }
 
-    fn alloc_index_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
+    pub(crate) fn alloc_index_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
         unsafe {
             self.create_buffer(
                 size,
@@ -193,10 +193,33 @@ impl PompeiiTransferContext<'_> {
             )
         }
     }
+
+    pub(crate) fn alloc_acceleration_structure_scratch_buffer(
+        &self,
+        size: vk::DeviceSize,
+    ) -> Result<VkBufferHandle> {
+        unsafe {
+            self.create_buffer(
+                size,
+                vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                vk_mem::MemoryUsage::GpuOnly,
+            )
+        }
+    }
+
+    pub(crate) fn alloc_acceleration_structure(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
+        unsafe {
+            self.create_buffer(
+                size,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                vk_mem::MemoryUsage::GpuOnly,
+            )
+        }
+    }
 }
 
 // Low level methods
-impl PompeiiTransferContext<'_> {
+impl PompeiiRenderer {
     unsafe fn create_buffer(
         &self,
         size: vk::DeviceSize,
