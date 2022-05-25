@@ -1,8 +1,17 @@
-use std::{ffi::CString, slice::from_ref, sync::Arc};
+use std::{ffi::CString, ptr, slice::from_ref, sync::Arc};
 
 use ash::vk;
+use log::trace;
 
 use crate::{errors::Result, mesh::VertexPosNormUvF32, PompeiiRenderer};
+
+#[derive(Debug)]
+pub(crate) struct VmaPools {
+    pub(crate) acceleration_structures: vk_mem::AllocatorPool,
+}
+
+unsafe impl Send for VmaPools {}
+unsafe impl Sync for VmaPools {}
 
 #[derive(Debug, Copy, Clone)]
 pub struct BufferHandle(usize);
@@ -25,6 +34,16 @@ impl PompeiiRenderer {
             // ops_image_copy: Default::default(),
             to_destroy: Vec::new(),
         }
+    }
+
+    pub unsafe fn free_buffer_on_exit(&self, buffer: VkBufferHandle) {
+        self.alloc_deletion_queue
+            .lock()
+            .push(Box::new(move |_, vma| {
+                let buffer = buffer;
+                vma.destroy_buffer(buffer.handle, buffer.allocation);
+                Ok(())
+            }));
     }
 
     pub unsafe fn free_buffer(&self, buffer: VkBufferHandle) {
@@ -150,6 +169,12 @@ impl From<(vk::Buffer, vk_mem::Allocation, vk_mem::AllocationInfo)> for VkBuffer
     }
 }
 
+impl VkBufferHandle {
+    pub unsafe fn destroy(&self, vma: &vk_mem::Allocator) {
+        vma.destroy_buffer(self.handle, self.allocation);
+    }
+}
+
 // Utils methods
 impl PompeiiRenderer {
     pub(crate) fn alloc_staging_buffer(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
@@ -176,7 +201,8 @@ impl PompeiiRenderer {
                 size,
                 vk::BufferUsageFlags::TRANSFER_DST
                     | vk::BufferUsageFlags::VERTEX_BUFFER
-                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                    | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
                 vk_mem::MemoryUsage::GpuOnly,
             )
         }
@@ -188,7 +214,8 @@ impl PompeiiRenderer {
                 size,
                 vk::BufferUsageFlags::TRANSFER_DST
                     | vk::BufferUsageFlags::INDEX_BUFFER
-                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS
+                    | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR,
                 vk_mem::MemoryUsage::GpuOnly,
             )
         }
@@ -199,19 +226,24 @@ impl PompeiiRenderer {
         size: vk::DeviceSize,
     ) -> Result<VkBufferHandle> {
         unsafe {
-            self.create_buffer(
+            self.create_buffer_from_pool(
                 size,
                 vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
                 vk_mem::MemoryUsage::GpuOnly,
+                self.vma_pools.acceleration_structures,
             )
         }
     }
 
-    pub(crate) fn alloc_acceleration_structure(&self, size: vk::DeviceSize) -> Result<VkBufferHandle> {
+    pub(crate) fn alloc_acceleration_structure(
+        &self,
+        size: vk::DeviceSize,
+    ) -> Result<VkBufferHandle> {
         unsafe {
             self.create_buffer(
                 size,
-                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
                 vk_mem::MemoryUsage::GpuOnly,
             )
         }
@@ -220,21 +252,42 @@ impl PompeiiRenderer {
 
 // Low level methods
 impl PompeiiRenderer {
+    #[inline]
     unsafe fn create_buffer(
         &self,
         size: vk::DeviceSize,
         usage: vk::BufferUsageFlags,
         location: vk_mem::MemoryUsage,
     ) -> Result<VkBufferHandle> {
+        self.create_buffer_from_pool(size, usage, location, ptr::null_mut())
+    }
+
+    #[inline]
+    unsafe fn create_buffer_from_pool(
+        &self,
+        size: vk::DeviceSize,
+        usage: vk::BufferUsageFlags,
+        location: vk_mem::MemoryUsage,
+        pool: vk_mem::AllocatorPool,
+    ) -> Result<VkBufferHandle> {
+        trace!("Creating buffer:");
+        trace!("- Size: {}", size);
+        trace!("- {:?}", usage);
+        trace!("- {:?}", location);
+        if !pool.is_null() {
+            trace!("- Pool: {:?}", pool);
+        }
+
         Ok(self
             .vma
             .create_buffer(
                 &vk::BufferCreateInfo::builder()
                     .size(size)
                     .usage(usage)
-                    .sharing_mode(vk::SharingMode::EXCLUSIVE)
-                    .build(),
-                &vk_mem::AllocationCreateInfo::new().usage(location),
+                    .sharing_mode(vk::SharingMode::EXCLUSIVE),
+                &vk_mem::AllocationCreateInfo::new()
+                    .usage(location)
+                    .pool(pool),
             )?
             .into())
     }

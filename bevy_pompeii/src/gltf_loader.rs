@@ -1,13 +1,13 @@
-use std::slice::from_ref;
 use std::sync::{Arc, Weak};
 
 use bevy_asset::{AssetLoader, BoxedFuture, LoadContext, LoadedAsset};
 use bevy_reflect::List;
 use gltf::Semantic;
+use log::debug;
 
 use pompeii::{errors::PompeiiError, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
-use crate::MeshAsset;
+use crate::{acceleration_structure::BlasAsset, MeshAsset};
 
 pub struct GltfLoader {
     renderer: Weak<PompeiiRenderer>,
@@ -86,14 +86,25 @@ impl AssetLoader for GltfLoader {
 
             let mesh =
                 renderer.create_mesh(vertices_handle, indices_handle, sub_meshes.into_iter());
+            mesh.destroy_on_exit(&renderer);
 
-            // TODO
-            // let blas = renderer.create_blas(from_ref(&mesh));
+            let blas = renderer.create_blas(std::iter::once(&mesh))?;
+            let blas = blas.into_iter().next().unwrap();
+            blas.destroy_on_exit(&renderer);
+            debug!("{:?}", &blas);
 
             load_context.set_default_asset(LoadedAsset::new(MeshAsset {
                 renderer: Arc::downgrade(&renderer),
                 mesh,
             }));
+
+            load_context.set_labeled_asset(
+                "blas",
+                LoadedAsset::new(BlasAsset {
+                    renderer: Arc::downgrade(&renderer),
+                    blas,
+                }),
+            );
 
             drop(renderer);
 

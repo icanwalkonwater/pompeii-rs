@@ -1,16 +1,20 @@
-use std::{cell::RefCell, mem::ManuallyDrop, sync::Arc};
+use std::sync::Arc;
 
 pub use ash;
 use ash::vk;
 use log::debug;
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 pub use vk_mem;
 
 use debug_utils::DebugUtils;
 use setup::*;
 
-use crate::swapchain::{SurfaceWrapper, SwapchainWrapper};
+use crate::{
+    alloc::VmaPools,
+    swapchain::{SurfaceWrapper, SwapchainWrapper},
+};
 
+pub mod acceleration_structure;
 pub mod alloc;
 mod commands;
 mod debug_utils;
@@ -20,7 +24,6 @@ mod render;
 pub mod setup;
 mod swapchain;
 mod sync;
-pub mod acceleration_structure;
 pub(crate) mod utils;
 
 pub mod errors {
@@ -66,15 +69,33 @@ pub mod errors {
 pub struct PompeiiRenderer {
     pub(crate) _entry: ash::Entry,
     pub(crate) instance: ash::Instance,
-    pub(crate) debug_utils: ManuallyDrop<DebugUtils>,
+    pub(crate) debug_utils: DebugUtils,
     pub(crate) physical_device: vk::PhysicalDevice,
     pub(crate) device: ash::Device,
     pub(crate) vma: Arc<vk_mem::Allocator>,
+    pub(crate) vma_pools: VmaPools,
     pub(crate) queues: DeviceQueues,
     pub(crate) surface: SurfaceWrapper,
     pub(crate) swapchain: Arc<RwLock<SwapchainWrapper>>,
-    pub(crate) ext_sync2: ash::extensions::khr::Synchronization2,
     pub(crate) ext_acceleration_structure: ash::extensions::khr::AccelerationStructure,
+    pub(crate) ext_ray_tracing_pipeline: ash::extensions::khr::RayTracingPipeline,
+
+    // Deletion queue for main objects that are freed when the renderer is dropped
+    pub(crate) main_deletion_queue:
+        Mutex<Vec<Box<dyn FnOnce(&PompeiiRenderer) -> errors::Result<()> + Send + Sync>>>,
+    // Deletion queue for the allocations that need freeing
+    pub(crate) alloc_deletion_queue: Mutex<
+        Vec<
+            Box<
+                dyn FnOnce(
+                        (&ash::Device, &ash::extensions::khr::AccelerationStructure),
+                        &Arc<vk_mem::Allocator>,
+                    ) -> errors::Result<()>
+                    + Send
+                    + Sync,
+            >,
+        >,
+    >,
 
     pub(crate) image_available_semaphore: vk::Semaphore,
     pub(crate) render_finished_semaphore: vk::Semaphore,
@@ -89,32 +110,28 @@ impl Drop for PompeiiRenderer {
                 .wait_for_fences(&[self.in_flight_fence], true, u64::MAX)
                 .unwrap();
 
-            // TODO: add destroys here
+            // Free everything
+            let mut alloc_deletion_queue = self.alloc_deletion_queue.lock();
+            for free in alloc_deletion_queue.drain(..).rev() {
+                free((&self.device, &self.ext_acceleration_structure), &self.vma).unwrap();
+            }
+
+            debug!("Freed everything");
 
             // VMA
             let vma = Arc::get_mut(&mut self.vma).unwrap();
+            vma.destroy_pool(self.vma_pools.acceleration_structures);
             vma.destroy();
 
-            // Sync
-            self.device
-                .destroy_semaphore(self.image_available_semaphore, None);
-            self.device
-                .destroy_semaphore(self.render_finished_semaphore, None);
-            self.device.destroy_fence(self.in_flight_fence, None);
+            debug!("Destroyed VMA");
 
-            // Queue pools
-            self.queues.destroy_pools(&self.device);
+            // Trigger main deletion queue
+            let mut main_deletion_queue = self.main_deletion_queue.lock();
+            for action in main_deletion_queue.drain(..).rev() {
+                action(self).unwrap();
+            }
 
-            // Swapchain
-            self.swapchain.write().cleanup(&self.device, true);
-
-            // Surface
-            self.surface.ext.destroy_surface(self.surface.handle, None);
-
-            // Device & instance
-            self.device.destroy_device(None);
-            ManuallyDrop::drop(&mut self.debug_utils);
-            self.instance.destroy_instance(None);
+            debug!("Cleanup done !");
         }
     }
 }

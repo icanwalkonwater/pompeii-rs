@@ -139,8 +139,6 @@ pub(crate) struct DeviceQueues {
     pub(crate) present_index: usize,
     pub(crate) compute_index: usize,
     pub(crate) transfer_index: usize,
-    #[cfg(debug_assertions)]
-    dropped: bool,
 }
 
 impl DeviceQueues {
@@ -200,8 +198,6 @@ impl DeviceQueues {
                 present_index: present,
                 compute_index: compute,
                 transfer_index: transfer,
-                #[cfg(debug_assertions)]
-                dropped: false,
             })
         }
     }
@@ -223,50 +219,24 @@ impl DeviceQueues {
     }
 
     pub(crate) fn graphics(&self) -> ReentrantMutexGuard<QueueWithPool> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(!self.dropped);
-        }
         self.queues[self.graphics_index].as_ref().unwrap().lock()
     }
 
     pub(crate) fn present(&self) -> ReentrantMutexGuard<QueueWithPool> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(!self.dropped);
-        }
         self.queues[self.present_index].as_ref().unwrap().lock()
     }
 
     pub(crate) fn compute(&self) -> ReentrantMutexGuard<QueueWithPool> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(!self.dropped);
-        }
         self.queues[self.compute_index].as_ref().unwrap().lock()
     }
 
     pub(crate) fn transfer(&self) -> ReentrantMutexGuard<QueueWithPool> {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(!self.dropped);
-        }
         self.queues[self.transfer_index].as_ref().unwrap().lock()
     }
 
-    pub(crate) unsafe fn destroy_pools(&mut self, device: &ash::Device) {
-        #[cfg(debug_assertions)]
-        {
-            debug_assert!(!self.dropped);
-        }
-
+    pub(crate) unsafe fn destroy_pools(&self, device: &ash::Device) {
         for queue in self.queues.iter().flatten() {
             device.destroy_command_pool(queue.lock().pool, None);
-        }
-
-        #[cfg(debug_assertions)]
-        {
-            self.dropped = true;
         }
     }
 }

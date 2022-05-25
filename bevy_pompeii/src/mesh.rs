@@ -4,9 +4,14 @@ use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_transform::TransformBundle;
-use log::{trace, warn};
+use log::{error, trace, warn};
 
 use pompeii::{mesh::Mesh, PompeiiRenderer};
+
+#[derive(Debug, Component)]
+pub struct MeshComponent {
+    pub handle: Handle<MeshAsset>,
+}
 
 #[derive(Debug, Bundle)]
 pub struct MeshBundle {
@@ -24,11 +29,6 @@ impl From<Handle<MeshAsset>> for MeshBundle {
     }
 }
 
-#[derive(Debug, Component)]
-pub struct MeshComponent {
-    pub handle: Handle<MeshAsset>,
-}
-
 #[derive(Clone, TypeUuid)]
 #[uuid = "c4ff691e-eaee-4369-84da-429838ea6e71"]
 pub struct MeshAsset {
@@ -36,15 +36,15 @@ pub struct MeshAsset {
     pub(crate) mesh: Mesh,
 }
 
-impl Drop for MeshAsset {
-    fn drop(&mut self) {
-        trace!("Freeing mesh...");
-        if let Some(renderer) = self.renderer.upgrade() {
-            unsafe {
-                self.mesh.destroy(&renderer);
-            }
-        } else {
-            warn!("Trying to free Mesh but the renderer is nowhere to be found");
-        }
-    }
-}
+// impl Drop for MeshAsset {
+//     fn drop(&mut self) {
+//         trace!("Freeing mesh...");
+//         if let Some(renderer) = self.renderer.upgrade() {
+//             unsafe {
+//                 self.mesh.destroy(&renderer);
+//             }
+//         } else {
+//             error!("Trying to free Mesh but the renderer is nowhere to be found");
+//         }
+//     }
+// }

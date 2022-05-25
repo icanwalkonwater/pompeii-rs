@@ -66,11 +66,17 @@ impl PompeiiRenderer {
 }
 
 impl Mesh {
-    /// # Safety
-    /// The mesh should not me used after this.
-    pub unsafe fn destroy(&self, renderer: &PompeiiRenderer) {
-        renderer.free_buffer(self.vertex_buffer.clone());
-        renderer.free_buffer(self.index_buffer.clone());
+    pub fn destroy_on_exit(&self, renderer: &PompeiiRenderer) {
+        let vert = self.vertex_buffer.clone();
+        let index = self.index_buffer.clone();
+        renderer
+            .alloc_deletion_queue
+            .lock()
+            .push(Box::new(move |_, vma| unsafe {
+                vert.destroy(vma);
+                index.destroy(vma);
+                Ok(())
+            }));
     }
 }
 

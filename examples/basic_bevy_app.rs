@@ -1,10 +1,10 @@
 use bevy::{
-    core::FixedTimestep,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
 };
 
 use bevy_pompeii::{
+    acceleration_structure::{BlasAsset, BlasComponent},
     mesh::{MeshAsset, MeshBundle, MeshComponent},
     PompeiiPlugin,
 };
@@ -34,8 +34,12 @@ fn main() -> anyhow::Result<()> {
 
 fn load_gltf(assets: Res<AssetServer>, mut commands: Commands) {
     let handle: Handle<MeshAsset> = assets.load("BetterCube.glb");
+    let blas: Handle<BlasAsset> = assets.load("BetterCube.glb#blas");
 
-    commands.spawn().insert_bundle(MeshBundle::from(handle));
+    commands
+        .spawn()
+        .insert_bundle(MeshBundle::from(handle))
+        .insert(BlasComponent { handle: blas });
 }
 
 fn remove_mesh(q: Query<Entity, With<MeshComponent>>, mut commands: Commands) {

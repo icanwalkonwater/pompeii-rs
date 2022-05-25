@@ -65,7 +65,14 @@ impl PompeiiRenderer {
             .device
             .create_fence(&vk::FenceCreateInfo::default(), None)?;
 
-        self.submit_to_queue_with_fence(queue, cmds, wait_semaphores, wait_dst_stage, signal_semaphore, fence)?;
+        self.submit_to_queue_with_fence(
+            queue,
+            cmds,
+            wait_semaphores,
+            wait_dst_stage,
+            signal_semaphore,
+            fence,
+        )?;
 
         Ok(fence)
     }
@@ -87,6 +94,12 @@ impl PompeiiRenderer {
         wait_dst_stage: &[vk::PipelineStageFlags],
         signal_semaphore: &[vk::Semaphore],
     ) -> Result<()> {
-        self.wait_fence(self.submit_to_queue(queue, cmds, wait_semaphores, wait_dst_stage, signal_semaphore)?)
+        self.wait_fence(self.submit_to_queue(
+            queue,
+            cmds,
+            wait_semaphores,
+            wait_dst_stage,
+            signal_semaphore,
+        )?)
     }
 }

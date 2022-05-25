@@ -54,12 +54,10 @@ impl DebugUtils {
     }
 }
 
-impl Drop for DebugUtils {
-    fn drop(&mut self) {
-        unsafe {
-            self.loader
-                .destroy_debug_utils_messenger(self.messenger, None);
-        }
+impl DebugUtils {
+    pub(crate) unsafe fn destroy(&self) {
+        self.loader
+            .destroy_debug_utils_messenger(self.messenger, None);
     }
 }
 
