@@ -4,7 +4,7 @@ use bevy::{
 };
 
 use bevy_pompeii::{
-    acceleration_structure::{BlasAsset, BlasComponent},
+    acceleration_structure::{BlasAsset, BlasComponent, TlasAsset, TlasComponent},
     mesh::{MeshAsset, MeshBundle, MeshComponent},
     PompeiiPlugin,
 };
@@ -35,11 +35,13 @@ fn main() -> anyhow::Result<()> {
 fn load_gltf(assets: Res<AssetServer>, mut commands: Commands) {
     let handle: Handle<MeshAsset> = assets.load("BetterCube.glb");
     let blas: Handle<BlasAsset> = assets.load("BetterCube.glb#blas");
+    let tlas: Handle<TlasAsset> = assets.load("BetterCube.glb#tlas");
 
     commands
         .spawn()
         .insert_bundle(MeshBundle::from(handle))
-        .insert(BlasComponent { handle: blas });
+        .insert(BlasComponent { handle: blas })
+        .insert(TlasComponent { handle: tlas });
 }
 
 fn remove_mesh(q: Query<Entity, With<MeshComponent>>, mut commands: Commands) {
@@ -47,3 +49,10 @@ fn remove_mesh(q: Query<Entity, With<MeshComponent>>, mut commands: Commands) {
         commands.entity(m).remove::<MeshComponent>();
     }
 }
+
+// fn test(q: Query<GlobalTransform>) {
+//     for t in q.iter() {
+//         let t: GlobalTransform = t;
+//         t.compute_affine();
+//     }
+// }

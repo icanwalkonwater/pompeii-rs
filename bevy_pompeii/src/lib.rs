@@ -7,7 +7,10 @@ pub use pompeii;
 use pompeii::PompeiiRenderer;
 
 use crate::{
-    gltf_loader::GltfLoader, mesh::MeshAsset, swapchain_recreation as swapchain,
+    acceleration_structure::{BlasAsset, TlasAsset},
+    gltf_loader::GltfLoader,
+    mesh::MeshAsset,
+    swapchain_recreation as swapchain,
     swapchain_recreation::RecreateSwapchainEvent,
 };
 
@@ -34,6 +37,8 @@ impl Plugin for PompeiiPlugin {
 
         // Loader will be added later in the setup code
         app.add_asset::<MeshAsset>();
+        app.add_asset::<BlasAsset>();
+        app.add_asset::<TlasAsset>();
 
         // Renderer will be created in this setup system
         app.add_startup_system(

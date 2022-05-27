@@ -1,5 +1,5 @@
 use ash::vk;
-use log::debug;
+use log::{debug, trace};
 
 use crate::{
     errors::{PompeiiError, Result},
@@ -57,8 +57,8 @@ impl PompeiiRenderer {
         window_size: (u32, u32),
         old_swapchain: Option<vk::SwapchainKHR>,
     ) -> Result<SwapchainTuple> {
-        debug!("Formats: {:?}", &info.formats);
-        debug!("Present modes: {:?}", &info.present_modes);
+        trace!("Formats: {:?}", &info.formats);
+        trace!("Present modes: {:?}", &info.present_modes);
 
         // Query various parameters
         let format = choose_swapchain_format(&info.formats)

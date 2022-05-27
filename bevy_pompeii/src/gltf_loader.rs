@@ -7,7 +7,10 @@ use log::debug;
 
 use pompeii::{errors::PompeiiError, mesh::VertexPosNormUvF32, PompeiiRenderer};
 
-use crate::{acceleration_structure::BlasAsset, MeshAsset};
+use crate::{
+    acceleration_structure::{BlasAsset, TlasAsset},
+    MeshAsset,
+};
 
 pub struct GltfLoader {
     renderer: Weak<PompeiiRenderer>,
@@ -89,22 +92,22 @@ impl AssetLoader for GltfLoader {
             mesh.destroy_on_exit(&renderer);
 
             let blas = renderer.create_blas(std::iter::once(&mesh))?;
+            debug!("Built BLASes !");
             let blas = blas.into_iter().next().unwrap();
             blas.destroy_on_exit(&renderer);
-            debug!("{:?}", &blas);
+
+            let tlas = renderer.create_tlas(std::iter::once(&blas))?;
+            debug!("Build TLAS !");
+            tlas.destroy_on_exit(&renderer);
 
             load_context.set_default_asset(LoadedAsset::new(MeshAsset {
                 renderer: Arc::downgrade(&renderer),
                 mesh,
             }));
 
-            load_context.set_labeled_asset(
-                "blas",
-                LoadedAsset::new(BlasAsset {
-                    renderer: Arc::downgrade(&renderer),
-                    blas,
-                }),
-            );
+            load_context.set_labeled_asset("blas", LoadedAsset::new(BlasAsset { blas }));
+
+            load_context.set_labeled_asset("tlas", LoadedAsset::new(TlasAsset { tlas }));
 
             drop(renderer);
 

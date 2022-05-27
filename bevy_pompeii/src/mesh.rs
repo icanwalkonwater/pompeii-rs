@@ -35,16 +35,3 @@ pub struct MeshAsset {
     pub(crate) renderer: Weak<PompeiiRenderer>,
     pub(crate) mesh: Mesh,
 }
-
-// impl Drop for MeshAsset {
-//     fn drop(&mut self) {
-//         trace!("Freeing mesh...");
-//         if let Some(renderer) = self.renderer.upgrade() {
-//             unsafe {
-//                 self.mesh.destroy(&renderer);
-//             }
-//         } else {
-//             error!("Trying to free Mesh but the renderer is nowhere to be found");
-//         }
-//     }
-// }

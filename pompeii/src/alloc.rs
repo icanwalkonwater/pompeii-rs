@@ -111,6 +111,42 @@ impl<'a> PompeiiTransferContext<'a> {
         Ok(index_buffer)
     }
 
+    pub fn create_acceleration_structure_instance_buffer(
+        &mut self,
+        instances: &[vk::AccelerationStructureInstanceKHR],
+    ) -> Result<VkBufferHandle> {
+        let size =
+            (instances.len() * std::mem::size_of::<vk::AccelerationStructureInstanceKHR>()) as _;
+        let staging = self.renderer.alloc_staging_buffer(size)?;
+        let instances_buffer = self
+            .renderer
+            .alloc_acceleration_structure_instance_buffer(size)?;
+
+        self.renderer.debug_utils.name_buffer(
+            &self.renderer.device,
+            instances_buffer.handle,
+            &CString::new(format!("TLAS Instances buffer (size: {})", size)).unwrap(),
+        )?;
+
+        unsafe {
+            self.renderer.store_to_buffer(&staging, instances)?;
+        }
+
+        self.ops_buffer_copy.push((
+            staging.handle,
+            instances_buffer.handle,
+            vk::BufferCopy::builder()
+                .size(size)
+                .src_offset(0)
+                .dst_offset(0)
+                .build(),
+        ));
+
+        self.to_destroy.push(staging);
+
+        Ok(instances_buffer)
+    }
+
     pub fn submit_and_wait(self) -> Result<()> {
         let device = &self.renderer.device;
         let queue = self.renderer.queues.transfer();
@@ -235,7 +271,7 @@ impl PompeiiRenderer {
         }
     }
 
-    pub(crate) fn alloc_acceleration_structure(
+    pub(crate) fn alloc_acceleration_structure_buffer(
         &self,
         size: vk::DeviceSize,
     ) -> Result<VkBufferHandle> {
@@ -243,6 +279,21 @@ impl PompeiiRenderer {
             self.create_buffer(
                 size,
                 vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR
+                    | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
+                vk_mem::MemoryUsage::GpuOnly,
+            )
+        }
+    }
+
+    pub(crate) fn alloc_acceleration_structure_instance_buffer(
+        &self,
+        size: vk::DeviceSize,
+    ) -> Result<VkBufferHandle> {
+        unsafe {
+            self.create_buffer(
+                size,
+                vk::BufferUsageFlags::TRANSFER_DST
+                    | vk::BufferUsageFlags::ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_KHR
                     | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
                 vk_mem::MemoryUsage::GpuOnly,
             )

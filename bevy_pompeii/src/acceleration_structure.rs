@@ -1,11 +1,8 @@
-use std::sync::Weak;
-
 use bevy_asset::Handle;
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use log::{error, trace};
 
-use pompeii::{acceleration_structure::Blas, PompeiiRenderer};
+use pompeii::acceleration_structure::{Blas, Tlas};
 
 #[derive(Component)]
 pub struct BlasComponent {
@@ -15,19 +12,16 @@ pub struct BlasComponent {
 #[derive(TypeUuid)]
 #[uuid = "ba78df52-efcd-46b1-9262-bfe494f34d93"]
 pub struct BlasAsset {
-    pub(crate) renderer: Weak<PompeiiRenderer>,
     pub(crate) blas: Blas,
 }
 
-// impl Drop for BlasAsset {
-//     fn drop(&mut self) {
-//         trace!("Freeing BLAS...");
-//         if let Some(renderer) = self.renderer.upgrade() {
-//             unsafe {
-//                 self.blas.destroy(&renderer);
-//             }
-//         } else {
-//             error!("Trying to free BLAS but the renderer is nowhere to be found");
-//         }
-//     }
-// }
+#[derive(Component)]
+pub struct TlasComponent {
+    pub handle: Handle<TlasAsset>,
+}
+
+#[derive(TypeUuid)]
+#[uuid = "12ce7eaa-424a-4b86-bdc5-13a2148798e8"]
+pub struct TlasAsset {
+    pub(crate) tlas: Tlas,
+}
