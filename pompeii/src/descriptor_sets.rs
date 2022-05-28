@@ -32,23 +32,25 @@ impl PompeiiRenderer {
     ) -> Result<DescriptorSetHandle> {
         let tlas = tlas.0.handle;
 
-        let (layout, handle) = DescriptorSetBuilder::new()
-            .add_binding(
-                RtBindings::Tlas,
-                vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
-                1,
-                vk::ShaderStageFlags::RAYGEN_KHR,
-            )
-            .add_binding(
-                RtBindings::Image,
-                vk::DescriptorType::STORAGE_IMAGE,
-                1,
-                vk::ShaderStageFlags::RAYGEN_KHR,
-            )
-            .write_binding_acceleration_structure(RtBindings::Tlas, 0, from_ref(&tlas))
-            .build(self)?;
+        let set = unsafe {
+            DescriptorSetBuilder::new()
+                .add_binding(
+                    RtBindings::Tlas,
+                    vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+                    1,
+                    vk::ShaderStageFlags::RAYGEN_KHR,
+                )
+                .add_binding(
+                    RtBindings::Image,
+                    vk::DescriptorType::STORAGE_IMAGE,
+                    1,
+                    vk::ShaderStageFlags::RAYGEN_KHR,
+                )
+                .write_binding_acceleration_structure(RtBindings::Tlas, 0, from_ref(&tlas))
+                .build(self)?
+        };
 
-        Ok(DescriptorSetHandle { handle, layout })
+        Ok(set)
     }
 }
 
@@ -211,13 +213,11 @@ impl<'a, T: Into<u32> + Hash + Eq + Copy> DescriptorSetBuilder<'a, T> {
         }
     }
 
-    pub fn build(
-        self,
-        renderer: &PompeiiRenderer,
-    ) -> Result<(vk::DescriptorSetLayout, vk::DescriptorSet)> {
+    pub unsafe fn build(self, renderer: &PompeiiRenderer) -> Result<DescriptorSetHandle> {
         // Create pool
-        let pool = unsafe {
+        let pool = {
             let pool_sizes = self.pool_sizes.into_values().collect::<Vec<_>>();
+
             renderer.device.create_descriptor_pool(
                 &vk::DescriptorPoolCreateInfo::builder()
                     .flags(vk::DescriptorPoolCreateFlags::empty())
@@ -228,12 +228,13 @@ impl<'a, T: Into<u32> + Hash + Eq + Copy> DescriptorSetBuilder<'a, T> {
         };
 
         // Create set layout
-        let layout = unsafe {
+        let layout = {
             let bindings = self
                 .bindings
                 .into_values()
                 .map(|b| b.build())
                 .collect::<Vec<_>>();
+
             renderer.device.create_descriptor_set_layout(
                 &vk::DescriptorSetLayoutCreateInfo::builder()
                     .flags(vk::DescriptorSetLayoutCreateFlags::empty())
@@ -243,13 +244,11 @@ impl<'a, T: Into<u32> + Hash + Eq + Copy> DescriptorSetBuilder<'a, T> {
         };
 
         // Finally, allocate set from pool
-        let set = unsafe {
-            renderer.device.allocate_descriptor_sets(
-                &vk::DescriptorSetAllocateInfo::builder()
-                    .descriptor_pool(pool)
-                    .set_layouts(from_ref(&layout)),
-            )?[0]
-        };
+        let set = renderer.device.allocate_descriptor_sets(
+            &vk::DescriptorSetAllocateInfo::builder()
+                .descriptor_pool(pool)
+                .set_layouts(from_ref(&layout)),
+        )?[0];
 
         // Complete writes
         let mut writes = self
@@ -267,20 +266,21 @@ impl<'a, T: Into<u32> + Hash + Eq + Copy> DescriptorSetBuilder<'a, T> {
         }
 
         // Actually write
-        unsafe {
-            renderer.device.update_descriptor_sets(&writes, &[]);
-        }
+        renderer.device.update_descriptor_sets(&writes, &[]);
 
         renderer
             .main_deletion_queue
             .lock()
-            .push(Box::new(move |renderer| unsafe {
+            .push(Box::new(move |renderer| {
                 debug!("Destroy RT descriptor set");
                 renderer.device.destroy_descriptor_set_layout(layout, None);
                 renderer.device.destroy_descriptor_pool(pool, None);
                 Ok(())
             }));
 
-        Ok((layout, set))
+        Ok(DescriptorSetHandle {
+            layout,
+            handle: set,
+        })
     }
 }
