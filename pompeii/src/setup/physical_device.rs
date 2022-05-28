@@ -6,7 +6,7 @@ use log::{debug, info, warn};
 use crate::{
     errors::Result,
     setup::{
-        builder::PompeiiBuilder, initializer::VULKAN_VERSION,
+        builder::PompeiiBuilder, extensions::REQUIRED_FEATURES_CHECK, initializer::VULKAN_VERSION,
         queues_finder::PhysicalDeviceQueueIndices,
     },
     swapchain::{SurfaceCapabilities, SurfaceWrapper},
@@ -15,10 +15,13 @@ use crate::{
 #[derive(Debug)]
 pub struct PhysicalDeviceInfo {
     pub(crate) handle: vk::PhysicalDevice,
-    pub features: vk::PhysicalDeviceFeatures2,
+    pub features_vk10: vk::PhysicalDeviceFeatures,
+    pub features_vk11: vk::PhysicalDeviceVulkan11Features,
+    pub features_vk12: vk::PhysicalDeviceVulkan12Features,
+    pub features_vk13: vk::PhysicalDeviceVulkan13Features,
+    pub features_acceleration_structure: vk::PhysicalDeviceAccelerationStructureFeaturesKHR,
+    pub features_ray_tracing_pipeline: vk::PhysicalDeviceRayTracingPipelineFeaturesKHR,
     pub properties: vk::PhysicalDeviceProperties2,
-    pub features_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingFeatures,
-    pub properties_descriptor_indexing: vk::PhysicalDeviceDescriptorIndexingProperties,
     pub extensions: Vec<vk::ExtensionProperties>,
     pub queue_families: Vec<vk::QueueFamilyProperties2>,
     pub memory_properties: vk::PhysicalDeviceMemoryProperties2,
@@ -67,27 +70,35 @@ impl PompeiiBuilder {
         let devices = devices
             .into_iter()
             .map(|d| unsafe {
-                // Query features
-                let mut features_descriptor_indexing =
-                    vk::PhysicalDeviceDescriptorIndexingFeatures::builder();
-                let mut features = vk::PhysicalDeviceFeatures2::builder()
-                    .push_next(&mut features_descriptor_indexing);
-                self.instance
-                    .get_physical_device_features2(d, &mut features);
-
-                // Query properties
-                let mut properties_descriptor_indexing =
-                    vk::PhysicalDeviceDescriptorIndexingProperties::builder();
-                let mut properties = vk::PhysicalDeviceProperties2::builder()
-                    .push_next(&mut properties_descriptor_indexing);
-                self.instance
-                    .get_physical_device_properties2(d, &mut properties);
-
                 // Query extensions
                 let extensions = self
                     .instance
                     .enumerate_device_extension_properties(d)
                     .expect("Failed to enumerate device extensions");
+
+                // Query features
+                let mut features_vk11 = vk::PhysicalDeviceVulkan11Features::default();
+                let mut features_vk12 = vk::PhysicalDeviceVulkan12Features::default();
+                let mut features_vk13 = vk::PhysicalDeviceVulkan13Features::default();
+                let mut features_acceleration_structure =
+                    vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default();
+                let mut features_ray_tracing_pipeline =
+                    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::default();
+
+                let mut features = vk::PhysicalDeviceFeatures2::builder()
+                    .push_next(&mut features_vk11)
+                    .push_next(&mut features_vk12)
+                    .push_next(&mut features_vk13)
+                    .push_next(&mut features_acceleration_structure)
+                    .push_next(&mut features_ray_tracing_pipeline);
+
+                self.instance
+                    .get_physical_device_features2(d, &mut features);
+
+                // Query properties
+                let mut properties = vk::PhysicalDeviceProperties2::default();
+                self.instance
+                    .get_physical_device_properties2(d, &mut properties);
 
                 // Query queue information
                 let mut queue_families =
@@ -140,10 +151,13 @@ impl PompeiiBuilder {
 
                 PhysicalDeviceInfo {
                     handle: d,
-                    features: features.build(),
-                    properties: properties.build(),
-                    features_descriptor_indexing: features_descriptor_indexing.build(),
-                    properties_descriptor_indexing: properties_descriptor_indexing.build(),
+                    features_vk10: features.features,
+                    features_vk11,
+                    features_vk12,
+                    features_vk13,
+                    features_acceleration_structure,
+                    features_ray_tracing_pipeline,
+                    properties,
                     extensions,
                     queue_families,
                     memory_properties,
@@ -189,13 +203,6 @@ impl PompeiiBuilder {
         surface: &SurfaceWrapper,
         device_extensions: &[*const c_char],
     ) -> Result<bool> {
-        if info.surface_capabilities.is_none() {
-            warn!("[{}] [KO] No support for the surface", info.name());
-            return Ok(false);
-        }
-
-        let surface_capabilities = info.surface_capabilities.as_ref().unwrap();
-
         // Check Vulkan version
         if info.properties.properties.api_version < VULKAN_VERSION {
             warn!(
@@ -229,6 +236,29 @@ impl PompeiiBuilder {
             warn!("[{}] [KO] Not all extensions are supported !", info.name());
             return Ok(false);
         }
+
+        // Check features
+        let supports_all_features = REQUIRED_FEATURES_CHECK.iter().all(|(name, check)| {
+            let found = check(info);
+            if found {
+                debug!("[{}] [OK] Found feature \"{}\"", info.name(), name);
+            } else {
+                warn!("[{}] [KO] Failed to find feature \"{}\"", info.name(), name);
+            }
+            found
+        });
+        if !supports_all_features {
+            warn!("[{}] [KO] Not all features are supported !", info.name());
+            return Ok(false);
+        }
+
+        // Check surface
+        if info.surface_capabilities.is_none() {
+            warn!("[{}] [KO] No support for the surface", info.name());
+            return Ok(false);
+        }
+
+        let surface_capabilities = info.surface_capabilities.as_ref().unwrap();
 
         // Check queues
         if PhysicalDeviceQueueIndices::from_device(info, surface).is_err() {

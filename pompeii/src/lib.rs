@@ -18,6 +18,7 @@ pub mod acceleration_structure;
 pub mod alloc;
 mod commands;
 mod debug_utils;
+pub mod descriptor_sets;
 mod images;
 pub mod mesh;
 mod render;

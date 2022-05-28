@@ -100,6 +100,8 @@ impl AssetLoader for GltfLoader {
             debug!("Build TLAS !");
             tlas.destroy_on_exit(&renderer);
 
+            let descriptor_set = renderer.create_descriptor_set_rt(&tlas)?;
+
             load_context.set_default_asset(LoadedAsset::new(MeshAsset {
                 renderer: Arc::downgrade(&renderer),
                 mesh,

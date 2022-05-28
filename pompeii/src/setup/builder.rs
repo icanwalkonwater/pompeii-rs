@@ -1,13 +1,13 @@
 use std::{io::Write, os::raw::c_char, sync::Arc};
 
 use ash::vk;
-use log::debug;
 use parking_lot::{lock_api::Mutex, RwLock};
 
 use crate::{
     debug_utils::DebugUtils,
     errors::{PompeiiError, Result},
     setup::{
+        extensions::get_required_features,
         initializer::PompeiiInitializer,
         physical_device::PhysicalDeviceInfo,
         queues_finder::{DeviceQueues, PhysicalDeviceQueueIndices},
@@ -92,36 +92,15 @@ impl PompeiiBuilder {
                 .ok_or(PompeiiError::NoPhysicalDevicePicked)?;
             let queue_create_info = physical.1.as_queue_create_info();
 
-            // TODO check if features are available
-            // TODO enabled things maybe
-            let mut vk12_features = vk::PhysicalDeviceVulkan12Features::builder()
-                .descriptor_indexing(true)
-                .buffer_device_address(true);
-
-            let mut vk13_features = vk::PhysicalDeviceVulkan13Features::builder()
-                .dynamic_rendering(true)
-                .synchronization2(true);
-
-            let mut acceleration_structure_features =
-                vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
-                    .acceleration_structure(true);
-
-            let mut ray_tracing_pipeline_features =
-                vk::PhysicalDeviceRayTracingPipelineFeaturesKHR::builder()
-                    .ray_tracing_pipeline(true);
-
-            // TODO enabled things maybe
-            let features = vk::PhysicalDeviceFeatures::builder();
-
+            let (mut f1, mut f2, mut f3, mut f4) = get_required_features();
             unsafe {
                 self.instance.create_device(
                     physical.0.handle,
                     &vk::DeviceCreateInfo::builder()
-                        .push_next(&mut vk12_features)
-                        .push_next(&mut vk13_features)
-                        .push_next(&mut acceleration_structure_features)
-                        .push_next(&mut ray_tracing_pipeline_features)
-                        .enabled_features(&features)
+                        .push_next(&mut f1)
+                        .push_next(&mut f2)
+                        .push_next(&mut f3)
+                        .push_next(&mut f4)
                         .enabled_extension_names(&self.device_extensions)
                         .queue_create_infos(&queue_create_info),
                     None,
